@@ -9798,18 +9798,43 @@ void Plater::priv::update_plugin_when_launch(wxCommandEvent &event)
     auto cache_folder = data_dir_path / "ota";
     std::string changelog_file = cache_folder.string() + "/plugins/network_plugins.json";
 
-    UpdatePluginDialog dlg(wxGetApp().mainframe);
+    // Show the update dialog with all options (Update, Remind Later, Skip Version, Disable Prompts)
+    UpdatePluginDialog dlg(wxGetApp().mainframe, true);
     dlg.update_info(changelog_file);
     auto result = dlg.ShowModal();
 
     auto app_config = wxGetApp().app_config;
     if (!app_config) return;
 
-    if (result == wxID_OK) {
+    // Handle the button result
+    auto button_result = dlg.get_button_result();
+
+    if (result == wxID_OK && button_result == UpdatePluginDialog::BTN_UPDATE) {
+        // User chose to update now
         app_config->set("update_network_plugin", "true");
+        BOOST_LOG_TRIVIAL(info) << "User chose to update network plugin";
     }
-    else if (result == wxID_NO) {
-        app_config->set("update_network_plugin", "false");
+    else if (button_result == UpdatePluginDialog::BTN_REMIND_LATER) {
+        // User chose to be reminded later (at next launch) - do nothing
+        BOOST_LOG_TRIVIAL(info) << "User chose to be reminded later about network plugin update";
+    }
+    else if (button_result == UpdatePluginDialog::BTN_SKIP_VERSION) {
+        // User chose to skip this version - add it to the skip list
+        try {
+            boost::nowide::ifstream ifs(changelog_file);
+            json j;
+            ifs >> j;
+            std::string version_str = j["version"];
+            wxGetApp().add_skipped_version(version_str);
+            BOOST_LOG_TRIVIAL(info) << "User chose to skip network plugin version: " << version_str;
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(error) << "Failed to read plugin version from changelog: " << e.what();
+        }
+    }
+    else if (button_result == UpdatePluginDialog::BTN_DISABLE_PROMPTS) {
+        // User chose to disable all update prompts
+        wxGetApp().disable_update_prompts(true);
+        BOOST_LOG_TRIVIAL(info) << "User disabled network plugin update prompts";
     }
 }
 

@@ -14,6 +14,7 @@
 #include "NetworkTestDialog.hpp"
 #include "Widgets/StaticLine.hpp"
 #include "Widgets/RadioGroup.hpp"
+#include "slic3r/Utils/bambu_networking.hpp"
 
 #ifdef __WINDOWS__
 #ifdef _MSW_DARK_MODE
@@ -1340,9 +1341,70 @@ void PreferencesDialog::create_items()
 
     auto item_enable_plugin    = create_item_checkbox(_L("Enable network plugin"), "", "installed_networking");
     g_sizer->Add(item_enable_plugin);
-    
+
     auto item_legacy_network   = create_item_checkbox(_L("Use legacy network plugin"), _L("Disable to use latest network plugin that supports new BambuLab firmwares."), "legacy_networking", _L("(Requires restart)"));
     g_sizer->Add(item_legacy_network);
+
+    // Add network library version selector (only for non-legacy mode)
+    std::vector<wxString> version_list;
+    std::vector<std::string> version_strings;
+    const auto& available_versions = BambuNetworkingVersions::get_available_versions();
+    for (const auto& ver : available_versions) {
+        version_list.push_back(wxString::FromUTF8(ver));
+        version_strings.push_back(ver);
+    }
+
+    // Create combobox with version strings as config values (not indices)
+    unsigned int current_index = 0;
+    auto current_version = app_config->get("networking_library_version");
+    if (!current_version.empty()) {
+        auto it = std::find(version_strings.begin(), version_strings.end(), current_version);
+        if (it != version_strings.end()) {
+            current_index = std::distance(version_strings.begin(), it);
+        }
+    }
+
+    auto [sizer_network_version, combo_network_version] = create_item_combobox_base(
+        _L("Network library version"),
+        _L("Select which version of the network library to use. Changes will attempt to reload the library dynamically."),
+        "networking_library_version",
+        version_list,
+        current_index
+    );
+
+    // Custom event handler that saves version string and triggers dynamic reload
+    combo_network_version->GetDropDown().Bind(wxEVT_COMBOBOX, [this, version_strings](wxCommandEvent& e) {
+        int selection = e.GetSelection();
+        if (selection >= 0 && selection < version_strings.size()) {
+            std::string selected_version = version_strings[selection];
+            std::string old_version = app_config->get("networking_library_version");
+
+            // Only reload if version actually changed
+            if (selected_version != old_version) {
+                // Try dynamic reload
+                bool reload_success = wxGetApp().reload_network_module_with_version(selected_version);
+
+                if (reload_success) {
+                    MessageDialog msg_dlg(nullptr,
+                        _L("Network library version changed successfully. The new version is now active."),
+                        _L("Library Reloaded"),
+                        wxOK | wxICON_INFORMATION);
+                    msg_dlg.ShowModal();
+                } else {
+                    // Dynamic reload failed, ask user to restart
+                    MessageDialog msg_dlg(nullptr,
+                        _L("Failed to reload the network library dynamically. Please restart OrcaSlicer for the changes to take effect."),
+                        _L("Restart Required"),
+                        wxOK | wxICON_WARNING);
+                    msg_dlg.ShowModal();
+                    // Version was already saved by reload_network_module_with_version
+                }
+            }
+        }
+        e.Skip();
+    });
+
+    g_sizer->Add(sizer_network_version);
 
     g_sizer->AddSpacer(FromDIP(10));
     sizer_page->Add(g_sizer, 0, wxEXPAND);

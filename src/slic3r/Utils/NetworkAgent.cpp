@@ -7,8 +7,11 @@
 #endif
 
 #include <boost/log/trivial.hpp>
+#include <boost/algorithm/string.hpp>
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/AppConfig.hpp"
 #include "NetworkAgent.hpp"
+#include "bambu_networking.hpp"
 
 #include "slic3r/Utils/FileTransferUtils.hpp"
 

@@ -849,7 +849,13 @@ void PresetUpdater::priv::sync_plugins(std::string http_url, std::string plugin_
         BOOST_LOG_TRIVIAL(info) << "non need to sync plugins for there is no plugins currently.";
         return;
     }
-    std::string curr_version = NetworkAgent::use_legacy_network ? BAMBU_NETWORK_AGENT_VERSION_LEGACY : BAMBU_NETWORK_AGENT_VERSION;
+    // Use configured library version or latest for non-legacy, legacy version for legacy mode
+    std::string curr_version;
+    if (NetworkAgent::use_legacy_network) {
+        curr_version = BAMBU_NETWORK_AGENT_VERSION_LEGACY;
+    } else {
+        curr_version = GUI::wxGetApp().get_current_library_version();
+    }
     std::string using_version = curr_version.substr(0, 9) + "00";
 
     std::string cached_version;
@@ -977,6 +983,19 @@ void PresetUpdater::priv::sync_plugins(std::string http_url, std::string plugin_
     bool result = get_cached_plugins_version(cached_version, force_upgrade);
     if (result) {
         BOOST_LOG_TRIVIAL(info) << format("[Orca Updater] found new plugins: %1%, prompt to update, force_upgrade %2%", cached_version, force_upgrade);
+
+        // Check if update prompts are disabled (only for non-legacy)
+        if (!NetworkAgent::use_legacy_network && GUI::wxGetApp().are_update_prompts_disabled()) {
+            BOOST_LOG_TRIVIAL(info) << "[Orca Updater] network plugin update prompts are disabled, skipping notification";
+            return;
+        }
+
+        // Check if this version is in the skip list (only for non-legacy)
+        if (!NetworkAgent::use_legacy_network && GUI::wxGetApp().is_version_skipped(cached_version)) {
+            BOOST_LOG_TRIVIAL(info) << "[Orca Updater] version " << cached_version << " is in skip list, not showing notification";
+            return;
+        }
+
         if (force_upgrade) {
             auto app_config = GUI::wxGetApp().app_config;
             if (!app_config)

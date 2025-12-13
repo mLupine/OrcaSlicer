@@ -4,6 +4,8 @@
 #include <string>
 #include <functional>
 #include <map>
+#include <vector>
+#include <algorithm>
 
 extern std::string g_log_folder;
 extern std::string g_log_start_time;
@@ -99,6 +101,29 @@ namespace BBL {
 
 #define BAMBU_NETWORK_AGENT_VERSION_LEGACY  "01.10.01.01"
 #define BAMBU_NETWORK_AGENT_VERSION         "02.03.00.62"
+
+// Available non-legacy library versions (hardcoded list)
+// The first version in the list is considered the latest/default
+namespace BambuNetworkingVersions {
+    static const std::vector<std::string> AVAILABLE_VERSIONS = {
+        "02.03.00.62"  // Latest version - always first in the list
+    };
+
+    // Get the latest available version (first in the list)
+    inline std::string get_latest_version() {
+        return AVAILABLE_VERSIONS.empty() ? BAMBU_NETWORK_AGENT_VERSION : AVAILABLE_VERSIONS[0];
+    }
+
+    // Check if a version is in the available list
+    inline bool is_version_available(const std::string& version) {
+        return std::find(AVAILABLE_VERSIONS.begin(), AVAILABLE_VERSIONS.end(), version) != AVAILABLE_VERSIONS.end();
+    }
+
+    // Get all available versions
+    inline const std::vector<std::string>& get_available_versions() {
+        return AVAILABLE_VERSIONS;
+    }
+}
 
 //iot preset type strings
 #define IOT_PRINTER_TYPE_STRING     "printer"

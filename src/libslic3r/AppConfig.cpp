@@ -276,6 +276,19 @@ void AppConfig::set_defaults()
         set_bool("legacy_networking", false);
     }
 
+    // Network library version configuration
+    if (get("networking_library_version").empty()) {
+        set("networking_library_version", "");  // Empty means use latest
+    }
+
+    if (get("networking_skipped_versions").empty()) {
+        set("networking_skipped_versions", "");  // Comma-separated list
+    }
+
+    if (get("networking_disable_update_prompts").empty()) {
+        set_bool("networking_disable_update_prompts", false);
+    }
+
     if(get("check_stable_update_only").empty()) {
         set_bool("check_stable_update_only", false);
     }

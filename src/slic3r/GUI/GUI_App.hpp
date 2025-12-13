@@ -686,6 +686,16 @@ public:
     void            restart_networking();
     void            check_config_updates_from_updater() { check_updates(false); }
 
+    // Network library version management helpers
+    std::string     get_current_library_version();  // Get configured version or latest
+    void            set_library_version(const std::string& version);  // Set version in config
+    bool            is_version_skipped(const std::string& version);  // Check if version is in skip list
+    void            add_skipped_version(const std::string& version);  // Add version to skip list
+    void            clear_skipped_version(const std::string& version);  // Remove version from skip list
+    bool            are_update_prompts_disabled();  // Check if update prompts are disabled
+    void            disable_update_prompts(bool disable);  // Set update prompts disabled flag
+    bool            reload_network_module_with_version(const std::string& version);  // Dynamically reload library
+
 private:
     int             updating_bambu_networking();
     bool            on_init_inner();

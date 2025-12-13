@@ -111,8 +111,10 @@ void ReleaseNoteDialog::update_release_note(wxString release_note, std::string v
     wxGetApp().UpdateDlgDarkUI(this);
 }
 
-UpdatePluginDialog::UpdatePluginDialog(wxWindow* parent /*= nullptr*/)
+UpdatePluginDialog::UpdatePluginDialog(wxWindow* parent /*= nullptr*/, bool show_all_options /*= false*/)
     : DPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, _L("Network plug-in update"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
+    , m_show_all_options(show_all_options)
+    , m_button_result(BTN_UPDATE)
 {
     SetBackgroundColour(*wxWHITE);
     wxBoxSizer* m_sizer_main = new wxBoxSizer(wxVERTICAL);
@@ -153,34 +155,92 @@ UpdatePluginDialog::UpdatePluginDialog(wxWindow* parent /*= nullptr*/)
     StateColor btn_bg_white(std::pair<wxColour, int>(wxColour(206, 206, 206), StateColor::Pressed), std::pair<wxColour, int>(wxColour(238, 238, 238), StateColor::Hovered),
         std::pair<wxColour, int>(*wxWHITE, StateColor::Normal));
 
-    auto m_button_ok = new Button(this, _L("OK"));
-    m_button_ok->SetBackgroundColor(btn_bg_green);
-    m_button_ok->SetBorderColor(*wxWHITE);
-    m_button_ok->SetTextColor(wxColour(0xFFFFFE));
-    m_button_ok->SetFont(Label::Body_12);
-    m_button_ok->SetSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_ok->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_ok->SetCornerRadius(FromDIP(12));
+    if (show_all_options) {
+        // Create 4 buttons when showing all options
+        auto m_button_update = new Button(this, _L("Update Now"));
+        m_button_update->SetBackgroundColor(btn_bg_green);
+        m_button_update->SetBorderColor(*wxWHITE);
+        m_button_update->SetTextColor(wxColour(0xFFFFFE));
+        m_button_update->SetFont(Label::Body_12);
+        m_button_update->SetSize(wxSize(FromDIP(80), FromDIP(24)));
+        m_button_update->SetMinSize(wxSize(FromDIP(80), FromDIP(24)));
+        m_button_update->SetCornerRadius(FromDIP(12));
+        m_button_update->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+            m_button_result = BTN_UPDATE;
+            EndModal(wxID_OK);
+            });
 
-    m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
-        EndModal(wxID_OK);
-        });
+        auto m_button_remind = new Button(this, _L("Remind Me Later"));
+        m_button_remind->SetBackgroundColor(btn_bg_white);
+        m_button_remind->SetBorderColor(wxColour(38, 46, 48));
+        m_button_remind->SetFont(Label::Body_12);
+        m_button_remind->SetSize(wxSize(FromDIP(100), FromDIP(24)));
+        m_button_remind->SetMinSize(wxSize(FromDIP(100), FromDIP(24)));
+        m_button_remind->SetCornerRadius(FromDIP(12));
+        m_button_remind->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+            m_button_result = BTN_REMIND_LATER;
+            EndModal(wxID_CANCEL);
+            });
 
-    auto m_button_cancel = new Button(this, _L("Cancel"));
-    m_button_cancel->SetBackgroundColor(btn_bg_white);
-    m_button_cancel->SetBorderColor(wxColour(38, 46, 48));
-    m_button_cancel->SetFont(Label::Body_12);
-    m_button_cancel->SetSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_cancel->SetCornerRadius(FromDIP(12));
+        auto m_button_skip = new Button(this, _L("Skip This Version"));
+        m_button_skip->SetBackgroundColor(btn_bg_white);
+        m_button_skip->SetBorderColor(wxColour(38, 46, 48));
+        m_button_skip->SetFont(Label::Body_12);
+        m_button_skip->SetSize(wxSize(FromDIP(100), FromDIP(24)));
+        m_button_skip->SetMinSize(wxSize(FromDIP(100), FromDIP(24)));
+        m_button_skip->SetCornerRadius(FromDIP(12));
+        m_button_skip->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+            m_button_result = BTN_SKIP_VERSION;
+            EndModal(wxID_CANCEL);
+            });
 
-    m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
-        EndModal(wxID_NO);
-        });
+        auto m_button_disable = new Button(this, _L("Don't Show Update Prompts"));
+        m_button_disable->SetBackgroundColor(btn_bg_white);
+        m_button_disable->SetBorderColor(wxColour(38, 46, 48));
+        m_button_disable->SetFont(Label::Body_12);
+        m_button_disable->SetSize(wxSize(FromDIP(140), FromDIP(24)));
+        m_button_disable->SetMinSize(wxSize(FromDIP(140), FromDIP(24)));
+        m_button_disable->SetCornerRadius(FromDIP(12));
+        m_button_disable->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+            m_button_result = BTN_DISABLE_PROMPTS;
+            EndModal(wxID_CANCEL);
+            });
 
-    sizer_button->AddStretchSpacer();
-    sizer_button->Add(m_button_ok, 0, wxALL, FromDIP(5));
-    sizer_button->Add(m_button_cancel, 0, wxALL, FromDIP(5));
+        sizer_button->Add(m_button_update, 0, wxALL, FromDIP(5));
+        sizer_button->AddStretchSpacer();
+        sizer_button->Add(m_button_remind, 0, wxALL, FromDIP(5));
+        sizer_button->Add(m_button_skip, 0, wxALL, FromDIP(5));
+        sizer_button->Add(m_button_disable, 0, wxALL, FromDIP(5));
+    } else {
+        // Keep existing OK/Cancel buttons but map OK to BTN_UPDATE
+        auto m_button_ok = new Button(this, _L("OK"));
+        m_button_ok->SetBackgroundColor(btn_bg_green);
+        m_button_ok->SetBorderColor(*wxWHITE);
+        m_button_ok->SetTextColor(wxColour(0xFFFFFE));
+        m_button_ok->SetFont(Label::Body_12);
+        m_button_ok->SetSize(wxSize(FromDIP(58), FromDIP(24)));
+        m_button_ok->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
+        m_button_ok->SetCornerRadius(FromDIP(12));
+        m_button_ok->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+            m_button_result = BTN_UPDATE;
+            EndModal(wxID_OK);
+            });
+
+        auto m_button_cancel = new Button(this, _L("Cancel"));
+        m_button_cancel->SetBackgroundColor(btn_bg_white);
+        m_button_cancel->SetBorderColor(wxColour(38, 46, 48));
+        m_button_cancel->SetFont(Label::Body_12);
+        m_button_cancel->SetSize(wxSize(FromDIP(58), FromDIP(24)));
+        m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
+        m_button_cancel->SetCornerRadius(FromDIP(12));
+        m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+            EndModal(wxID_NO);
+            });
+
+        sizer_button->AddStretchSpacer();
+        sizer_button->Add(m_button_ok, 0, wxALL, FromDIP(5));
+        sizer_button->Add(m_button_cancel, 0, wxALL, FromDIP(5));
+    }
 
     m_sizer_right->Add(m_text_up_info, 0, wxEXPAND, 0);
     m_sizer_right->Add(0, 0, 0, wxTOP, FromDIP(5));
@@ -238,6 +298,28 @@ void UpdatePluginDialog::update_info(std::string json_path)
     m_text_up_info->SetMaxSize(wxSize(FromDIP(260), -1));
     wxBoxSizer* sizer_text_release_note = new wxBoxSizer(wxVERTICAL);
     auto        m_text_label            = new ::Label(m_vebview_release_note, Label::Body_13, description, LB_AUTO_WRAP);
+    m_text_label->SetMinSize(wxSize(FromDIP(235), -1));
+    m_text_label->SetMaxSize(wxSize(FromDIP(235), -1));
+
+    sizer_text_release_note->Add(m_text_label, 0, wxALL, 5);
+    m_vebview_release_note->SetSizer(sizer_text_release_note);
+    m_vebview_release_note->Layout();
+    m_vebview_release_note->Fit();
+    wxGetApp().UpdateDlgDarkUI(this);
+    Layout();
+    Fit();
+}
+
+void UpdatePluginDialog::update_info(const std::string& version, const std::string& description)
+{
+    wxString version_wx = from_u8(version);
+    wxString description_wx = from_u8(description);
+
+    m_text_up_info->SetLabel(wxString::Format(_L("A new Network plug-in (%s) is available. Do you want to install it?"), version_wx));
+    m_text_up_info->SetMinSize(wxSize(FromDIP(260), -1));
+    m_text_up_info->SetMaxSize(wxSize(FromDIP(260), -1));
+    wxBoxSizer* sizer_text_release_note = new wxBoxSizer(wxVERTICAL);
+    auto        m_text_label            = new ::Label(m_vebview_release_note, Label::Body_13, description_wx, LB_AUTO_WRAP);
     m_text_label->SetMinSize(wxSize(FromDIP(235), -1));
     m_text_label->SetMaxSize(wxSize(FromDIP(235), -1));
 

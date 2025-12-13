@@ -86,6 +86,7 @@
 #include "../Utils/Http.hpp"
 #include "../Utils/InstanceID.hpp"
 #include "../Utils/UndoRedo.hpp"
+#include "../Utils/bambu_networking.hpp"
 #include "slic3r/Config/Snapshot.hpp"
 #include "Preferences.hpp"
 #include "Tab.hpp"
@@ -1590,8 +1591,30 @@ void GUI_App::remove_old_networking_plugins()
 
 int GUI_App::updating_bambu_networking()
 {
-    DownloadProgressDialog dlg(_L("Downloading Bambu Network Plug-in"));
-    dlg.ShowModal();
+    // Determine if version selector should be shown and if there's an error message
+    bool show_version_selector = false;
+    wxString error_message = wxEmptyString;
+
+    // Only show version selector for non-legacy mode
+    if (!NetworkAgent::use_legacy_network) {
+        show_version_selector = true;
+
+        // Check if library failed to load or compatibility check failed
+        if (!m_networking_compatible) {
+            error_message = _L("The network library failed to load or is incompatible. Please select a version to download.");
+        }
+    }
+
+    DownloadProgressDialog dlg(_L("Downloading Bambu Network Plug-in"), show_version_selector, error_message);
+    int result = dlg.ShowModal();
+
+    // Save the selected version to config before download starts
+    if (result == wxID_OK && show_version_selector) {
+        std::string selected_version = dlg.get_selected_version();
+        set_library_version(selected_version);
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": user selected version=" << selected_version;
+    }
+
     return 0;
 }
 
@@ -1601,7 +1624,16 @@ bool GUI_App::check_networking_version()
     if (!network_ver.empty()) {
         BOOST_LOG_TRIVIAL(info) << "get_network_agent_version=" << network_ver;
     }
-    std::string studio_ver = NetworkAgent::use_legacy_network ? BAMBU_NETWORK_AGENT_VERSION_LEGACY : BAMBU_NETWORK_AGENT_VERSION;
+
+    // Use configured library version or latest for non-legacy, legacy version for legacy mode
+    std::string studio_ver;
+    if (NetworkAgent::use_legacy_network) {
+        studio_ver = BAMBU_NETWORK_AGENT_VERSION_LEGACY;
+    } else {
+        studio_ver = get_current_library_version();
+    }
+    BOOST_LOG_TRIVIAL(info) << "expected_library_version=" << studio_ver;
+
     if (network_ver.length() >= 8) {
         if (network_ver.substr(0,8) == studio_ver.substr(0,8)) {
             m_networking_compatible = true;
@@ -1623,6 +1655,119 @@ void GUI_App::cancel_networking_install()
 {
     m_networking_cancel_update = true;
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< boost::format(": plugin install cancelled!");
+}
+
+// Network library version management helpers
+std::string GUI_App::get_current_library_version()
+{
+    // If legacy networking is enabled, return empty (not managed by version system)
+    if (NetworkAgent::use_legacy_network) {
+        return "";
+    }
+
+    std::string configured_version = app_config->get("networking_library_version");
+
+    // If empty or not available, return latest version
+    if (configured_version.empty() || !BambuNetworkingVersions::is_version_available(configured_version)) {
+        return BambuNetworkingVersions::get_latest_version();
+    }
+
+    return configured_version;
+}
+
+void GUI_App::set_library_version(const std::string& version)
+{
+    app_config->set("networking_library_version", version);
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": set networking_library_version=" << version;
+}
+
+bool GUI_App::is_version_skipped(const std::string& version)
+{
+    std::string skipped_versions = app_config->get("networking_skipped_versions");
+    if (skipped_versions.empty()) {
+        return false;
+    }
+
+    std::vector<std::string> skipped_list;
+    boost::split(skipped_list, skipped_versions, boost::is_any_of(","));
+
+    return std::find(skipped_list.begin(), skipped_list.end(), version) != skipped_list.end();
+}
+
+void GUI_App::add_skipped_version(const std::string& version)
+{
+    std::string skipped_versions = app_config->get("networking_skipped_versions");
+
+    if (is_version_skipped(version)) {
+        return;  // Already in the list
+    }
+
+    if (!skipped_versions.empty()) {
+        skipped_versions += ",";
+    }
+    skipped_versions += version;
+
+    app_config->set("networking_skipped_versions", skipped_versions);
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": added skipped version=" << version;
+}
+
+void GUI_App::clear_skipped_version(const std::string& version)
+{
+    std::string skipped_versions = app_config->get("networking_skipped_versions");
+    if (skipped_versions.empty()) {
+        return;
+    }
+
+    std::vector<std::string> skipped_list;
+    boost::split(skipped_list, skipped_versions, boost::is_any_of(","));
+
+    auto it = std::remove(skipped_list.begin(), skipped_list.end(), version);
+    skipped_list.erase(it, skipped_list.end());
+
+    std::string new_skipped = boost::algorithm::join(skipped_list, ",");
+    app_config->set("networking_skipped_versions", new_skipped);
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": cleared skipped version=" << version;
+}
+
+bool GUI_App::are_update_prompts_disabled()
+{
+    return app_config->get_bool("networking_disable_update_prompts");
+}
+
+void GUI_App::disable_update_prompts(bool disable)
+{
+    app_config->set_bool("networking_disable_update_prompts", disable);
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": update prompts disabled=" << disable;
+}
+
+bool GUI_App::reload_network_module_with_version(const std::string& version)
+{
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": attempting to reload network module with version=" << version;
+
+    // Unload the current network module
+    if (m_agent) {
+        delete m_agent;
+        m_agent = nullptr;
+    }
+
+    int unload_result = NetworkAgent::unload_network_module();
+    if (unload_result != 0) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": unload_network_module failed with code=" << unload_result;
+    }
+
+    // Set the desired version in config
+    set_library_version(version);
+
+    // Try to initialize the new version
+    bool success = on_init_network(false);
+
+    if (success) {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": successfully reloaded network module with version=" << version;
+    } else {
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": failed to reload network module with version=" << version;
+    }
+
+    return success;
 }
 
 void GUI_App::init_networking_callbacks()

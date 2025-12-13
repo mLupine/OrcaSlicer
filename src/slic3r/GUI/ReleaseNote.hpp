@@ -67,15 +67,28 @@ public:
 class UpdatePluginDialog : public DPIDialog
 {
 public:
-    UpdatePluginDialog(wxWindow* parent = nullptr);
+    enum ButtonResult {
+        BTN_UPDATE = 1,
+        BTN_REMIND_LATER = 2,
+        BTN_SKIP_VERSION = 3,
+        BTN_DISABLE_PROMPTS = 4
+    };
+
+    UpdatePluginDialog(wxWindow* parent = nullptr, bool show_all_options = false);
     ~UpdatePluginDialog();
 
     void on_dpi_changed(const wxRect& suggested_rect) override;
     void update_info(std::string json_path);
+    void update_info(const std::string& version, const std::string& description);
+    ButtonResult get_button_result() const { return m_button_result; }
 
     Label* m_text_up_info{ nullptr };
     Label* operation_tips{ nullptr };
     wxScrolledWindow* m_vebview_release_note{ nullptr };
+
+private:
+    bool m_show_all_options{ false };
+    ButtonResult m_button_result{ BTN_UPDATE };
 };
 
 class UpdateVersionDialog : public DPIDialog

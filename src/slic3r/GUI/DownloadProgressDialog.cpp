@@ -22,6 +22,7 @@
 #include "GUI_App.hpp"
 #include "Jobs/BoostThreadWorker.hpp"
 #include "Jobs/PlaterWorker.hpp"
+#include "slic3r/Utils/bambu_networking.hpp"
 
 #define DESIGN_INPUT_SIZE wxSize(FromDIP(100), -1)
 
@@ -30,8 +31,9 @@ namespace GUI {
 
 
 
-DownloadProgressDialog::DownloadProgressDialog(wxString title)
+DownloadProgressDialog::DownloadProgressDialog(wxString title, bool show_version_selector, wxString error_message)
     : DPIDialog(static_cast<wxWindow *>(wxGetApp().mainframe), wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
+    , m_show_version_selector(show_version_selector)
 {
     wxString download_failed_url = wxT("https://wiki.bambulab.com/en/software/bambu-studio/failed-to-get-network-plugin");
     wxString install_failed_url = wxT("https://wiki.bambulab.com/en/software/bambu-studio/failed-to-get-network-plugin");
@@ -45,6 +47,40 @@ DownloadProgressDialog::DownloadProgressDialog(wxString title)
     m_line_top->SetBackgroundColour(wxColour(166, 169, 170));
     m_sizer_main->Add(m_line_top, 0, wxEXPAND, 0);
 
+    // Add error message if provided
+    if (!error_message.IsEmpty()) {
+        m_error_message = new wxStaticText(this, wxID_ANY, error_message, wxDefaultPosition, wxDefaultSize, 0);
+        m_error_message->SetForegroundColour(*wxRED);
+        m_error_message->Wrap(FromDIP(360));
+        m_sizer_main->Add(m_error_message, 0, wxALL | wxALIGN_CENTER, FromDIP(10));
+    }
+
+    // Add version selector if requested
+    if (m_show_version_selector) {
+        wxBoxSizer *version_sizer = new wxBoxSizer(wxHORIZONTAL);
+
+        auto version_label = new wxStaticText(this, wxID_ANY, _L("Version:"), wxDefaultPosition, wxDefaultSize, 0);
+        version_sizer->Add(version_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(10));
+
+        wxArrayString version_choices;
+        const auto& available_versions = BambuNetworkingVersions::get_available_versions();
+        for (const auto& ver : available_versions) {
+            wxString choice = wxString::FromUTF8(ver);
+            if (ver == BambuNetworkingVersions::get_latest_version()) {
+                choice += _L(" (latest)");
+            }
+            version_choices.Add(choice);
+        }
+
+        m_version_selector = new wxComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                            wxSize(FromDIP(200), -1), version_choices, wxCB_READONLY);
+        if (!version_choices.IsEmpty()) {
+            m_version_selector->SetSelection(0);  // Select latest by default
+        }
+
+        version_sizer->Add(m_version_selector, 1, wxALIGN_CENTER_VERTICAL);
+        m_sizer_main->Add(version_sizer, 0, wxALL | wxEXPAND, FromDIP(10));
+    }
 
     m_simplebook_status = new wxSimplebook(this);
     m_simplebook_status->SetSize(wxSize(FromDIP(400), FromDIP(70)));
@@ -200,6 +236,30 @@ void DownloadProgressDialog::on_close(wxCloseEvent& event)
 void DownloadProgressDialog::on_dpi_changed(const wxRect &suggested_rect) {}
 
 void DownloadProgressDialog::update_release_note(std::string release_note, std::string version) {}
+
+std::string DownloadProgressDialog::get_selected_version() const
+{
+    if (!m_version_selector) {
+        return BambuNetworkingVersions::get_latest_version();
+    }
+
+    int selection = m_version_selector->GetSelection();
+    if (selection == wxNOT_FOUND) {
+        return BambuNetworkingVersions::get_latest_version();
+    }
+
+    // Extract version string from selection (remove " (latest)" suffix if present)
+    wxString selected_text = m_version_selector->GetString(selection);
+    std::string version_str = selected_text.ToStdString();
+
+    // Remove " (latest)" suffix
+    size_t latest_pos = version_str.find(" (latest)");
+    if (latest_pos != std::string::npos) {
+        version_str = version_str.substr(0, latest_pos);
+    }
+
+    return version_str;
+}
 
 std::unique_ptr<UpgradeNetworkJob> DownloadProgressDialog::make_job() { return std::make_unique<UpgradeNetworkJob>(); }
 
