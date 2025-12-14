@@ -14,8 +14,10 @@
 #include <wx/hyperlink.h>
 #include "Widgets/SwitchButton.hpp"
 #include "Widgets/RadioBox.hpp"
-#include "Widgets/PopupWindow.hpp"
+#include "GUI_Utils.hpp"
 #include "Widgets/TextInput.hpp"
+
+class Label;
 
 namespace Slic3r {
 namespace GUI {
@@ -24,17 +26,11 @@ wxDECLARE_EVENT(EVT_VCAMERA_SWITCH, wxMouseEvent);
 wxDECLARE_EVENT(EVT_SDCARD_ABSENT_HINT, wxCommandEvent);
 wxDECLARE_EVENT(EVT_CAM_SOURCE_CHANGE, wxCommandEvent);
 
-class CameraPopup : public PopupWindow
+class CameraPopup : public DPIDialog
 {
 public:
     CameraPopup(wxWindow *parent);
     virtual ~CameraPopup() {}
-
-    // PopupWindow virtual methods are all overridden to log them
-    virtual void Popup(wxWindow *focus = NULL) wxOVERRIDE;
-    virtual void OnDismiss() wxOVERRIDE;
-    virtual bool ProcessLeftDown(wxMouseEvent &event) wxOVERRIDE;
-    virtual bool Show(bool show = true) wxOVERRIDE;
 
     void sync_vcamera_state(bool show_vcamera);
     void check_func_supported(MachineObject* obj);
@@ -50,12 +46,15 @@ public:
     void rescale();
 
 protected:
+    void on_dpi_changed(const wxRect& suggested_rect) override;
     void on_switch_recording(wxCommandEvent& event);
     void on_set_resolution();
     void sdcard_absent_hint();
     void on_camera_source_changed(wxCommandEvent& event);
     void handle_camera_source_change();
     void set_custom_cam_button_state(bool state);
+    void load_printer_camera_settings();
+    void on_manage_cameras_clicked(wxMouseEvent& event);
 
     wxWindow *  create_item_radiobox(wxString title, wxWindow *parent, wxString tooltip, int padding_left);
     void select_curr_radiobox(int btn_idx);
@@ -66,8 +65,6 @@ protected:
 
 private:
     MachineObject* m_obj { nullptr };
-    wxTimer* m_interval_timer{nullptr};
-    bool  m_is_in_interval{ false };
     wxStaticText* m_text_recording;
     SwitchButton* m_switch_recording;
     wxStaticText* m_text_vcamera;
@@ -78,6 +75,7 @@ private:
     TextInput* m_custom_camera_input;
     Button* m_custom_camera_input_confirm;
     bool m_custom_camera_enabled{ false };
+    Label* m_manage_cameras_link{nullptr};
     wxStaticText* m_text_resolution;
     wxWindow* m_resolution_options[RESOLUTION_OPTIONS_NUM];
     wxScrolledWindow *m_panel;
@@ -89,18 +87,6 @@ private:
     wxPanel* link_underline{ nullptr };
     bool is_vcamera_show = false;
     bool allow_alter_resolution = false;
-
-    void start_interval();
-    void stop_interval(wxTimerEvent& event);
-    void OnMouse(wxMouseEvent &event);
-    void OnSize(wxSizeEvent &event);
-    void OnSetFocus(wxFocusEvent &event);
-    void OnKillFocus(wxFocusEvent &event);
-    void OnLeftUp(wxMouseEvent& event);
-
-private:
-    wxDECLARE_ABSTRACT_CLASS(CameraPopup);
-    wxDECLARE_EVENT_TABLE();
 };
 
 
