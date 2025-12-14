@@ -13,6 +13,7 @@
 #include "MsgDialog.hpp"
 #include "slic3r/Utils/Http.hpp"
 #include "libslic3r/Thread.hpp"
+#include "libslic3r/AppConfig.hpp"
 #include "DeviceErrorDialog.hpp"
 
 #include "RecenterDialog.hpp"
@@ -1588,14 +1589,6 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
     sizer->Add(m_media_ctrl, 1, wxEXPAND | wxALL, 0);
     sizer->Add(m_custom_camera_view, 1, wxEXPAND | wxALL, 0);
     sizer->Add(m_media_play_ctrl, 0, wxEXPAND | wxALL, 0);
-//    media_ctrl_panel->SetSizer(bSizer_monitoring);
-//    media_ctrl_panel->Layout();
-//
-//    sizer->Add(media_ctrl_panel, 1, wxEXPAND | wxALL, 1);
-
-    if (wxGetApp().app_config->get("camera", "enable_custom_source") == "true") {
-        handle_camera_source_change();
-    }
 
     return sizer;
 }
@@ -4922,8 +4915,19 @@ void StatusBasePanel::on_camera_source_change(wxCommandEvent& event)
 
 void StatusBasePanel::handle_camera_source_change()
 {
-    const auto new_cam_url = wxGetApp().app_config->get("camera", "custom_source");
-    const auto enabled = wxGetApp().app_config->get("camera", "enable_custom_source") == "true";
+    std::string new_cam_url;
+    bool enabled = false;
+
+    auto* dev_manager = wxGetApp().getDeviceManager();
+    MachineObject* machine = dev_manager ? dev_manager->get_selected_machine() : nullptr;
+    if (machine) {
+        std::string dev_id = machine->get_dev_id();
+        if (wxGetApp().app_config->has_printer_camera(dev_id)) {
+            auto config = wxGetApp().app_config->get_printer_camera(dev_id);
+            new_cam_url = config.custom_source;
+            enabled = config.enabled;
+        }
+    }
 
     if (enabled && !new_cam_url.empty()) {
         m_custom_camera_view->LoadURL(new_cam_url);
@@ -4944,7 +4948,16 @@ void StatusBasePanel::toggle_builtin_camera()
 
 void StatusBasePanel::toggle_custom_camera()
 {
-    const auto enabled = wxGetApp().app_config->get("camera", "enable_custom_source") == "true";
+    bool enabled = false;
+    auto* dev_manager = wxGetApp().getDeviceManager();
+    MachineObject* machine = dev_manager ? dev_manager->get_selected_machine() : nullptr;
+    if (machine) {
+        std::string dev_id = machine->get_dev_id();
+        if (wxGetApp().app_config->has_printer_camera(dev_id)) {
+            auto config = wxGetApp().app_config->get_printer_camera(dev_id);
+            enabled = config.enabled;
+        }
+    }
 
     if (enabled) {
         m_custom_camera_view->Show();
@@ -4955,7 +4968,17 @@ void StatusBasePanel::toggle_custom_camera()
 
 void StatusBasePanel::on_camera_switch_toggled(wxMouseEvent& event)
 {
-    const auto enabled = wxGetApp().app_config->get("camera", "enable_custom_source") == "true";
+    bool enabled = false;
+    auto* dev_manager = wxGetApp().getDeviceManager();
+    MachineObject* machine = dev_manager ? dev_manager->get_selected_machine() : nullptr;
+    if (machine) {
+        std::string dev_id = machine->get_dev_id();
+        if (wxGetApp().app_config->has_printer_camera(dev_id)) {
+            auto config = wxGetApp().app_config->get_printer_camera(dev_id);
+            enabled = config.enabled;
+        }
+    }
+
     if (enabled && m_media_ctrl->IsShown()) {
         toggle_custom_camera();
     } else {

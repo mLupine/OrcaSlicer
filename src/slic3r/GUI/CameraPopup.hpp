@@ -17,6 +17,8 @@
 #include "Widgets/PopupWindow.hpp"
 #include "Widgets/TextInput.hpp"
 
+class Label;
+
 namespace Slic3r {
 namespace GUI {
 
@@ -56,6 +58,8 @@ protected:
     void on_camera_source_changed(wxCommandEvent& event);
     void handle_camera_source_change();
     void set_custom_cam_button_state(bool state);
+    void load_printer_camera_settings();
+    void on_manage_cameras_clicked(wxMouseEvent& event);
 
     wxWindow *  create_item_radiobox(wxString title, wxWindow *parent, wxString tooltip, int padding_left);
     void select_curr_radiobox(int btn_idx);
@@ -78,6 +82,7 @@ private:
     TextInput* m_custom_camera_input;
     Button* m_custom_camera_input_confirm;
     bool m_custom_camera_enabled{ false };
+    Label* m_manage_cameras_link{nullptr};
     wxStaticText* m_text_resolution;
     wxWindow* m_resolution_options[RESOLUTION_OPTIONS_NUM];
     wxScrolledWindow *m_panel;
@@ -92,11 +97,9 @@ private:
 
     void start_interval();
     void stop_interval(wxTimerEvent& event);
-    void OnMouse(wxMouseEvent &event);
     void OnSize(wxSizeEvent &event);
     void OnSetFocus(wxFocusEvent &event);
     void OnKillFocus(wxFocusEvent &event);
-    void OnLeftUp(wxMouseEvent& event);
 
 private:
     wxDECLARE_ABSTRACT_CLASS(CameraPopup);

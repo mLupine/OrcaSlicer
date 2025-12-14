@@ -46,6 +46,19 @@ struct BBLocalMachine
     bool operator!=(const BBLocalMachine& other) const { return !operator==(other); }
 };
 
+struct PrinterCameraConfig
+{
+    std::string dev_id;
+    std::string custom_source;
+    bool enabled = false;
+
+    bool operator==(const PrinterCameraConfig& other) const
+    {
+        return dev_id == other.dev_id && custom_source == other.custom_source && enabled == other.enabled;
+    }
+    bool operator!=(const PrinterCameraConfig& other) const { return !operator==(other); }
+};
+
 class AppConfig
 {
 public:
@@ -246,6 +259,40 @@ public:
         }
     }
 
+    const std::map<std::string, PrinterCameraConfig>& get_all_printer_cameras() const { return m_printer_cameras; }
+    bool has_printer_camera(const std::string& dev_id) const
+    {
+        return m_printer_cameras.find(dev_id) != m_printer_cameras.end();
+    }
+    PrinterCameraConfig get_printer_camera(const std::string& dev_id) const
+    {
+        auto it = m_printer_cameras.find(dev_id);
+        if (it != m_printer_cameras.end())
+            return it->second;
+        return PrinterCameraConfig{};
+    }
+    void set_printer_camera(const PrinterCameraConfig& config)
+    {
+        auto it = m_printer_cameras.find(config.dev_id);
+        if (it != m_printer_cameras.end()) {
+            if (it->second != config) {
+                m_printer_cameras[config.dev_id] = config;
+                m_dirty = true;
+            }
+        } else {
+            m_printer_cameras[config.dev_id] = config;
+            m_dirty = true;
+        }
+    }
+    void erase_printer_camera(const std::string& dev_id)
+    {
+        auto it = m_printer_cameras.find(dev_id);
+        if (it != m_printer_cameras.end()) {
+            m_printer_cameras.erase(it);
+            m_dirty = true;
+        }
+    }
+
     const std::vector<std::string> &get_filament_presets() const { return m_filament_presets; }
     void set_filament_presets(const std::vector<std::string> &filament_presets){
         m_filament_presets = filament_presets;
@@ -389,6 +436,7 @@ private:
 	std::vector<PrinterCaliInfo>								m_printer_cali_infos;
 
 	std::map<std::string, BBLocalMachine>						m_local_machines;
+	std::map<std::string, PrinterCameraConfig>					m_printer_cameras;
 };
 
 } // namespace Slic3r
