@@ -87,15 +87,21 @@ void CameraEditDialog::populate_printer_list()
 {
     m_printers.clear();
 
+    const auto& existing_cameras = wxGetApp().app_config->get_all_printer_cameras();
+    auto has_existing_override = [&](const std::string& dev_id) {
+        if (!m_initial_dev_id.empty()) return false;
+        return existing_cameras.find(dev_id) != existing_cameras.end();
+    };
+
     auto* dev_manager = wxGetApp().getDeviceManager();
     if (dev_manager) {
         for (const auto& pair : dev_manager->get_local_machinelist()) {
-            if (pair.second) {
+            if (pair.second && !has_existing_override(pair.second->get_dev_id())) {
                 m_printers.emplace_back(pair.second->get_dev_id(), pair.second->get_dev_name());
             }
         }
         for (const auto& pair : dev_manager->get_user_machinelist()) {
-            if (pair.second) {
+            if (pair.second && !has_existing_override(pair.second->get_dev_id())) {
                 bool exists = false;
                 for (const auto& p : m_printers) {
                     if (p.first == pair.second->get_dev_id()) {
@@ -112,6 +118,7 @@ void CameraEditDialog::populate_printer_list()
 
     const auto& local_machines = wxGetApp().app_config->get_local_machines();
     for (const auto& pair : local_machines) {
+        if (has_existing_override(pair.first)) continue;
         bool exists = false;
         for (const auto& p : m_printers) {
             if (p.first == pair.first) {
@@ -126,7 +133,7 @@ void CameraEditDialog::populate_printer_list()
 
     m_printer_combo->Clear();
     for (const auto& p : m_printers) {
-        wxString display = wxString::Format("%s (%s...)", p.second, p.first.substr(0, 8));
+        wxString display = wxString::Format("%s (%s)", p.second, p.first);
         m_printer_combo->Append(display);
     }
 
@@ -342,9 +349,6 @@ std::string CameraManagementDialog::get_printer_name_for_dev_id(const std::strin
 
 std::string CameraManagementDialog::truncate_serial(const std::string& dev_id)
 {
-    if (dev_id.length() > 12) {
-        return dev_id.substr(0, 8) + "...";
-    }
     return dev_id;
 }
 

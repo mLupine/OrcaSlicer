@@ -19,25 +19,17 @@
 namespace Slic3r {
 namespace GUI {
 
-wxIMPLEMENT_CLASS(CameraPopup, PopupWindow);
-
-wxBEGIN_EVENT_TABLE(CameraPopup, PopupWindow)
-    EVT_SIZE(CameraPopup::OnSize)
-    EVT_SET_FOCUS(CameraPopup::OnSetFocus )
-    EVT_KILL_FOCUS(CameraPopup::OnKillFocus )
-wxEND_EVENT_TABLE()
-
 wxDEFINE_EVENT(EVT_VCAMERA_SWITCH, wxMouseEvent);
 wxDEFINE_EVENT(EVT_SDCARD_ABSENT_HINT, wxCommandEvent);
 wxDEFINE_EVENT(EVT_CAM_SOURCE_CHANGE, wxCommandEvent);
 
-#define CAMERAPOPUP_CLICK_INTERVAL 20
-
 const wxColour TEXT_COL = wxColour(43, 52, 54);
 
 CameraPopup::CameraPopup(wxWindow *parent)
-   : PopupWindow(parent, wxBORDER_NONE | wxPU_CONTAINS_CONTROLS)
+   : DPIDialog(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize,
+               wxBORDER_SIMPLE | wxFRAME_NO_TASKBAR | wxFRAME_FLOAT_ON_PARENT | wxSTAY_ON_TOP)
 {
+    SetBackgroundColour(*wxWHITE);
 #ifdef __WINDOWS__
     SetDoubleBuffered(true);
 #endif
@@ -170,13 +162,13 @@ CameraPopup::CameraPopup(wxWindow *parent)
         evt.SetEventObject(this);
         GetEventHandler()->ProcessEvent(evt);
         });
-#ifdef __WXOSX__
-    Bind(wxEVT_IDLE, [](wxIdleEvent &) {});
-#endif
 
-    this->Bind(wxEVT_TIMER, &CameraPopup::stop_interval, this);
-    m_interval_timer = new wxTimer();
-    m_interval_timer->SetOwner(this);
+    Bind(wxEVT_ACTIVATE, [this](wxActivateEvent& e) {
+        if (!e.GetActive()) {
+            Hide();
+        }
+        e.Skip();
+    });
 
     wxGetApp().UpdateDarkUIWin(this);
 }
@@ -245,7 +237,7 @@ void CameraPopup::load_printer_camera_settings()
 
 void CameraPopup::on_manage_cameras_clicked(wxMouseEvent& event)
 {
-    Dismiss();
+    Hide();
 
     CameraManagementDialog dlg(wxGetApp().mainframe);
     dlg.ShowModal();
@@ -254,7 +246,7 @@ void CameraPopup::on_manage_cameras_clicked(wxMouseEvent& event)
 
     wxCommandEvent evt(EVT_CAM_SOURCE_CHANGE);
     evt.SetEventObject(this);
-    wxPostEvent(GetParent(), evt);
+    GetEventHandler()->ProcessEvent(evt);
 }
 
 void CameraPopup::on_switch_recording(wxCommandEvent& event)
@@ -274,17 +266,6 @@ void CameraPopup::on_set_resolution()
     if (!m_obj) return;
 
     m_obj->command_ipcam_resolution_set(to_resolution_msg_string(curr_sel_resolution));
-}
-
-void CameraPopup::Popup(wxWindow *WXUNUSED(focus))
-{
-    wxPoint curr_position = this->GetPosition();
-    wxSize win_size = this->GetSize();
-    curr_position.x -= win_size.x;
-    this->SetPosition(curr_position);
-
-    if (!m_is_in_interval)
-        PopupWindow::Popup();
 }
 
 wxWindow* CameraPopup::create_item_radiobox(wxString title, wxWindow* parent, wxString tooltip, int padding_left)
@@ -481,49 +462,15 @@ void CameraPopup::rescale()
     m_panel->Layout();
     main_sizer->Fit(m_panel);
     SetClientSize(m_panel->GetSize());
-    PopupWindow::Update();
+    Layout();
 }
 
-void CameraPopup::start_interval()
+void CameraPopup::on_dpi_changed(const wxRect& suggested_rect)
 {
-    m_interval_timer->Start(CAMERAPOPUP_CLICK_INTERVAL);
-    m_is_in_interval = true;
-}
-
-void CameraPopup::stop_interval(wxTimerEvent& event)
-{
-    m_is_in_interval = false;
-    m_interval_timer->Stop();
-}
-
-void CameraPopup::OnDismiss() {
-    PopupWindow::OnDismiss();
-    this->start_interval();
-}
-
-bool CameraPopup::ProcessLeftDown(wxMouseEvent &event)
-{
-    return PopupWindow::ProcessLeftDown(event);
-}
-
-bool CameraPopup::Show(bool show)
-{
-    return PopupWindow::Show(show);
-}
-
-void CameraPopup::OnSize(wxSizeEvent &event)
-{
-    event.Skip();
-}
-
-void CameraPopup::OnSetFocus(wxFocusEvent &event)
-{
-    event.Skip();
-}
-
-void CameraPopup::OnKillFocus(wxFocusEvent &event)
-{
-    event.Skip();
+    m_panel->Layout();
+    main_sizer->Fit(m_panel);
+    SetClientSize(m_panel->GetSize());
+    Layout();
 }
 
 CameraItem::CameraItem(wxWindow *parent, std::string normal, std::string hover)

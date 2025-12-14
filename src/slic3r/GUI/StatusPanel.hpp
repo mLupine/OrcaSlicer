@@ -651,6 +651,7 @@ protected:
     int          m_last_timelapse = -1;
     int          m_last_extrusion = -1;
     int          m_last_vcamera   = -1;
+    std::string  m_last_dev_id;
     int          m_model_mall_request_count = 0;
     bool         m_is_load_with_temp = false;
     json         m_rating_result;

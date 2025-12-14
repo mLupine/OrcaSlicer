@@ -2303,6 +2303,12 @@ void StatusPanel::update_camera_state(MachineObject* obj)
 {
     if (!obj) return;
 
+    std::string current_dev_id = obj->get_dev_id();
+    if (m_last_dev_id != current_dev_id) {
+        m_last_dev_id = current_dev_id;
+        handle_camera_source_change();
+    }
+
     //sdcard
     auto sdcard_state = obj->GetStorage()->get_sdcard_state();
     if (m_last_sdcard != sdcard_state) {
@@ -4904,7 +4910,7 @@ void StatusPanel::on_camera_enter(wxMouseEvent& event)
         pos.y += sz.y;
         m_camera_popup->SetPosition(pos);
         m_camera_popup->update(m_media_play_ctrl->IsStreaming());
-        m_camera_popup->Popup();
+        m_camera_popup->Show();
     }
 }
 
@@ -5006,7 +5012,7 @@ void StatusBasePanel::remove_controls()
 void StatusPanel::on_camera_leave(wxMouseEvent& event)
 {
     if (obj && m_camera_popup) {
-        m_camera_popup->Dismiss();
+        m_camera_popup->Hide();
     }
 }
 
