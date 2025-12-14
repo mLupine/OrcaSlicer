@@ -46,15 +46,41 @@ struct BBLocalMachine
     bool operator!=(const BBLocalMachine& other) const { return !operator==(other); }
 };
 
+enum class CameraSourceType : int {
+    Builtin = 0,
+    WebView = 1,
+    RTSP    = 2,
+    MJPEG   = 3
+};
+
+inline std::string camera_source_type_to_string(CameraSourceType type) {
+    switch (type) {
+        case CameraSourceType::Builtin: return "builtin";
+        case CameraSourceType::WebView: return "webview";
+        case CameraSourceType::RTSP:    return "rtsp";
+        case CameraSourceType::MJPEG:   return "mjpeg";
+    }
+    return "builtin";
+}
+
+inline CameraSourceType camera_source_type_from_string(const std::string& s) {
+    if (s == "webview") return CameraSourceType::WebView;
+    if (s == "rtsp")    return CameraSourceType::RTSP;
+    if (s == "mjpeg")   return CameraSourceType::MJPEG;
+    return CameraSourceType::Builtin;
+}
+
 struct PrinterCameraConfig
 {
     std::string dev_id;
     std::string custom_source;
+    CameraSourceType source_type = CameraSourceType::Builtin;
     bool enabled = false;
 
     bool operator==(const PrinterCameraConfig& other) const
     {
-        return dev_id == other.dev_id && custom_source == other.custom_source && enabled == other.enabled;
+        return dev_id == other.dev_id && custom_source == other.custom_source
+            && source_type == other.source_type && enabled == other.enabled;
     }
     bool operator!=(const PrinterCameraConfig& other) const { return !operator==(other); }
 };

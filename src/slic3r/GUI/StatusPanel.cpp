@@ -23,6 +23,7 @@
 #include <wx/mstream.h>
 #include <wx/sstream.h>
 #include <wx/zstream.h>
+#include <algorithm>
 
 #include "DeviceCore/DevBed.h"
 #include "DeviceCore/DevCtrl.h"
@@ -1423,6 +1424,12 @@ StatusBasePanel::~StatusBasePanel()
         delete m_custom_camera_view;
         m_custom_camera_view = nullptr;
     }
+
+    if (m_native_camera_ctrl) {
+        m_native_camera_ctrl->Stop();
+        delete m_native_camera_ctrl;
+        m_native_camera_ctrl = nullptr;
+    }
 }
 
 void StatusBasePanel::init_bitmaps()
@@ -1535,10 +1542,12 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
     m_camera_switch_button->SetBitmap(m_bitmap_switch_camera.bmp());
     m_camera_switch_button->Bind(wxEVT_LEFT_DOWN, &StatusBasePanel::on_camera_switch_toggled, this);
     m_camera_switch_button->Bind(wxEVT_RIGHT_DOWN, [this](auto& e) {
-        const std::string js_request_pip = R"(
-            document.querySelector('video').requestPictureInPicture();
-        )";
-        m_custom_camera_view->RunScript(js_request_pip);
+        if (m_custom_camera_view && m_custom_camera_view->IsShown()) {
+            const std::string js_request_pip = R"(
+                document.querySelector('video').requestPictureInPicture();
+            )";
+            m_custom_camera_view->RunScript(js_request_pip);
+        }
     });
     m_camera_switch_button->Hide();
 
@@ -1572,13 +1581,9 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
     m_custom_camera_view = WebView::CreateWebView(this, wxEmptyString);
     m_custom_camera_view->EnableContextMenu(false);
     Bind(wxEVT_WEBVIEW_NAVIGATING, &StatusBasePanel::on_webview_navigating, this, m_custom_camera_view->GetId());
-
-    m_media_play_ctrl = new MediaPlayCtrl(this, m_media_ctrl, wxDefaultPosition, wxSize(-1, FromDIP(40)));
     m_custom_camera_view->Hide();
     m_custom_camera_view->Bind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, [this](wxWebViewEvent& evt) {
         if (evt.GetString() == "leavepictureinpicture") {
-            // When leaving PiP, video gets paused in some cases and toggling play
-            // programmatically does not work.
             m_custom_camera_view->Reload();
         }
         else if (evt.GetString() == "enterpictureinpicture") {
@@ -1586,8 +1591,16 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
         }
     });
 
+    m_native_camera_ctrl = new NativeMediaCtrl(this);
+    m_native_camera_ctrl->Hide();
+    m_native_camera_ctrl->Bind(EVT_NATIVE_MEDIA_STATE_CHANGED, &StatusBasePanel::on_native_camera_state_changed, this);
+    m_native_camera_ctrl->Bind(EVT_NATIVE_MEDIA_ERROR, &StatusBasePanel::on_native_camera_error, this);
+
+    m_media_play_ctrl = new MediaPlayCtrl(this, m_media_ctrl, wxDefaultPosition, wxSize(-1, FromDIP(40)));
+
     sizer->Add(m_media_ctrl, 1, wxEXPAND | wxALL, 0);
     sizer->Add(m_custom_camera_view, 1, wxEXPAND | wxALL, 0);
+    sizer->Add(m_native_camera_ctrl, 1, wxEXPAND | wxALL, 0);
     sizer->Add(m_media_play_ctrl, 0, wxEXPAND | wxALL, 0);
 
     return sizer;
@@ -1595,8 +1608,39 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
 
 void StatusBasePanel::on_webview_navigating(wxWebViewEvent& evt) {
     wxGetApp().CallAfter([this] {
-        remove_controls();
+        remove_webview_controls();
     });
+}
+
+void StatusBasePanel::remove_webview_controls()
+{
+    const std::string js_cleanup_video_element = R"(
+        document.body.style.overflow='hidden';
+        const video = document.querySelector('video');
+        if (video) {
+            video.setAttribute('style', 'width: 100% !important;');
+            video.removeAttribute('controls');
+            video.addEventListener('leavepictureinpicture', () => {
+                window.wx.postMessage('leavepictureinpicture');
+            });
+            video.addEventListener('enterpictureinpicture', () => {
+                window.wx.postMessage('enterpictureinpicture');
+            });
+        }
+    )";
+    m_custom_camera_view->RunScript(js_cleanup_video_element);
+}
+
+void StatusBasePanel::on_native_camera_state_changed(wxCommandEvent& event)
+{
+    NativeMediaState state = static_cast<NativeMediaState>(event.GetInt());
+    BOOST_LOG_TRIVIAL(info) << "NativeMediaCtrl state changed: " << static_cast<int>(state);
+}
+
+void StatusBasePanel::on_native_camera_error(wxCommandEvent& event)
+{
+    NativeMediaError error = static_cast<NativeMediaError>(event.GetInt());
+    BOOST_LOG_TRIVIAL(warning) << "NativeMediaCtrl error: " << static_cast<int>(error);
 }
 
 wxBoxSizer *StatusBasePanel::create_machine_control_page(wxWindow *parent)
@@ -4922,6 +4966,7 @@ void StatusBasePanel::on_camera_source_change(wxCommandEvent& event)
 void StatusBasePanel::handle_camera_source_change()
 {
     std::string new_cam_url;
+    CameraSourceType source_type = CameraSourceType::Builtin;
     bool enabled = false;
 
     auto* dev_manager = wxGetApp().getDeviceManager();
@@ -4931,15 +4976,30 @@ void StatusBasePanel::handle_camera_source_change()
         if (wxGetApp().app_config->has_printer_camera(dev_id)) {
             auto config = wxGetApp().app_config->get_printer_camera(dev_id);
             new_cam_url = config.custom_source;
+            source_type = config.source_type;
             enabled = config.enabled;
         }
     }
 
-    if (enabled && !new_cam_url.empty()) {
-        m_custom_camera_view->LoadURL(new_cam_url);
-        toggle_custom_camera();
+    if (enabled && source_type != CameraSourceType::Builtin) {
+        if (source_type == CameraSourceType::RTSP || source_type == CameraSourceType::MJPEG) {
+            m_custom_camera_view->Hide();
+            m_native_camera_ctrl->Load(new_cam_url);
+            m_native_camera_ctrl->Play();
+            m_native_camera_ctrl->Show();
+        } else {
+            m_native_camera_ctrl->Stop();
+            m_native_camera_ctrl->Hide();
+            m_custom_camera_view->LoadURL(new_cam_url);
+            m_custom_camera_view->Show();
+        }
+        m_media_ctrl->Hide();
+        m_media_play_ctrl->Hide();
         m_camera_switch_button->Show();
     } else {
+        m_native_camera_ctrl->Stop();
+        m_native_camera_ctrl->Hide();
+        m_custom_camera_view->Hide();
         toggle_builtin_camera();
         m_camera_switch_button->Hide();
     }
@@ -4947,6 +5007,8 @@ void StatusBasePanel::handle_camera_source_change()
 
 void StatusBasePanel::toggle_builtin_camera()
 {
+    m_native_camera_ctrl->Stop();
+    m_native_camera_ctrl->Hide();
     m_custom_camera_view->Hide();
     m_media_ctrl->Show();
     m_media_play_ctrl->Show();
@@ -4954,6 +5016,8 @@ void StatusBasePanel::toggle_builtin_camera()
 
 void StatusBasePanel::toggle_custom_camera()
 {
+    std::string cam_url;
+    CameraSourceType source_type = CameraSourceType::Builtin;
     bool enabled = false;
     auto* dev_manager = wxGetApp().getDeviceManager();
     MachineObject* machine = dev_manager ? dev_manager->get_selected_machine() : nullptr;
@@ -4961,14 +5025,23 @@ void StatusBasePanel::toggle_custom_camera()
         std::string dev_id = machine->get_dev_id();
         if (wxGetApp().app_config->has_printer_camera(dev_id)) {
             auto config = wxGetApp().app_config->get_printer_camera(dev_id);
+            cam_url = config.custom_source;
+            source_type = config.source_type;
             enabled = config.enabled;
         }
     }
 
-    if (enabled) {
-        m_custom_camera_view->Show();
+    if (enabled && source_type != CameraSourceType::Builtin) {
         m_media_ctrl->Hide();
         m_media_play_ctrl->Hide();
+
+        if (source_type == CameraSourceType::RTSP || source_type == CameraSourceType::MJPEG) {
+            m_custom_camera_view->Hide();
+            m_native_camera_ctrl->Show();
+        } else {
+            m_native_camera_ctrl->Hide();
+            m_custom_camera_view->Show();
+        }
     }
 }
 
@@ -4990,23 +5063,6 @@ void StatusBasePanel::on_camera_switch_toggled(wxMouseEvent& event)
     } else {
         toggle_builtin_camera();
     }
-}
-
-void StatusBasePanel::remove_controls()
-{
-    const std::string js_cleanup_video_element = R"(
-        document.body.style.overflow='hidden';
-        const video = document.querySelector('video');
-        video.setAttribute('style', 'width: 100% !important;');
-        video.removeAttribute('controls');
-        video.addEventListener('leavepictureinpicture', () => {
-            window.wx.postMessage('leavepictureinpicture');
-        });
-        video.addEventListener('enterpictureinpicture', () => {
-            window.wx.postMessage('enterpictureinpicture');
-        });
-    )";
-    m_custom_camera_view->RunScript(js_cleanup_video_element);
 }
 
 void StatusPanel::on_camera_leave(wxMouseEvent& event)

@@ -16,10 +16,12 @@ public:
     CameraEditDialog(wxWindow* parent,
                      const std::string& dev_id = "",
                      const std::string& url = "",
+                     CameraSourceType source_type = CameraSourceType::Builtin,
                      bool enabled = false);
 
     std::string get_dev_id() const;
     std::string get_url() const;
+    CameraSourceType get_source_type() const;
     bool get_enabled() const;
 
 protected:
@@ -29,8 +31,11 @@ private:
     void create_ui();
     void populate_printer_list();
     void on_ok(wxCommandEvent& event);
+    void on_source_type_changed(wxCommandEvent& event);
+    void update_url_field_state();
 
     wxComboBox* m_printer_combo{nullptr};
+    wxComboBox* m_source_type_combo{nullptr};
     TextInput* m_url_input{nullptr};
     CheckBox* m_enabled_checkbox{nullptr};
 

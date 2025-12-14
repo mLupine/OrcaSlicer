@@ -652,18 +652,25 @@ if (APPLE)
             GUI/GUI_UtilsMac.mm
             GUI/wxMediaCtrl2.mm
             GUI/wxMediaCtrl2.h
+            GUI/NativeMediaCtrl.h
+            GUI/NativeMediaCtrl.cpp
+            GUI/NativeMediaCtrl_Mac.mm
         )
     FIND_LIBRARY(DISKARBITRATION_LIBRARY DiskArbitration)
 else ()
     list(APPEND SLIC3R_GUI_SOURCES
             GUI/wxMediaCtrl2.cpp
             GUI/wxMediaCtrl2.h
+            GUI/NativeMediaCtrl.h
+            GUI/NativeMediaCtrl.cpp
+            GUI/NativeMediaCtrl_Win.cpp
         )
 endif ()
 
 if (UNIX AND NOT APPLE)
     list(APPEND SLIC3R_GUI_SOURCES
         GUI/Printer/gstbambusrc.c
+        GUI/NativeMediaCtrl_Linux.cpp
     )
 endif ()
 

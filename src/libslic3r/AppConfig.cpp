@@ -685,6 +685,8 @@ std::string AppConfig::load()
                     cam_config.dev_id = m.key();
                     if (p.contains("custom_source"))
                         cam_config.custom_source = p["custom_source"].get<std::string>();
+                    if (p.contains("source_type"))
+                        cam_config.source_type = camera_source_type_from_string(p["source_type"].get<std::string>());
                     if (p.contains("enabled"))
                         cam_config.enabled = p["enabled"].get<bool>();
                     m_printer_cameras[cam_config.dev_id] = cam_config;
@@ -889,6 +891,7 @@ void AppConfig::save()
     for (const auto& printer_camera : m_printer_cameras) {
         json cam_json;
         cam_json["custom_source"] = printer_camera.second.custom_source;
+        cam_json["source_type"]   = camera_source_type_to_string(printer_camera.second.source_type);
         cam_json["enabled"]       = printer_camera.second.enabled;
 
         j["printer_cameras"][printer_camera.first] = cam_json;

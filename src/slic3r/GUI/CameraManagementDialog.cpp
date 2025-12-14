@@ -9,8 +9,9 @@ namespace Slic3r { namespace GUI {
 CameraEditDialog::CameraEditDialog(wxWindow* parent,
                                    const std::string& dev_id,
                                    const std::string& url,
+                                   CameraSourceType source_type,
                                    bool enabled)
-    : DPIDialog(parent, wxID_ANY, _L("Edit Camera Override"), wxDefaultPosition, wxSize(FromDIP(400), FromDIP(200)), wxDEFAULT_DIALOG_STYLE)
+    : DPIDialog(parent, wxID_ANY, _L("Edit Camera Override"), wxDefaultPosition, wxSize(FromDIP(400), FromDIP(250)), wxDEFAULT_DIALOG_STYLE)
     , m_initial_dev_id(dev_id)
 {
     create_ui();
@@ -24,8 +25,11 @@ CameraEditDialog::CameraEditDialog(wxWindow* parent,
             }
         }
     }
+    m_source_type_combo->SetSelection(static_cast<int>(source_type));
     m_url_input->GetTextCtrl()->SetValue(url);
     m_enabled_checkbox->SetValue(enabled);
+
+    update_url_field_state();
 
     wxGetApp().UpdateDarkUIWin(this);
 }
@@ -36,21 +40,33 @@ void CameraEditDialog::create_ui()
 
     wxBoxSizer* main_sizer = new wxBoxSizer(wxVERTICAL);
 
-    wxFlexGridSizer* grid_sizer = new wxFlexGridSizer(3, 2, FromDIP(10), FromDIP(10));
+    wxFlexGridSizer* grid_sizer = new wxFlexGridSizer(4, 2, FromDIP(10), FromDIP(10));
     grid_sizer->AddGrowableCol(1);
 
     wxStaticText* printer_label = new wxStaticText(this, wxID_ANY, _L("Printer:"));
     m_printer_combo = new wxComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(250), -1), 0, nullptr, wxCB_READONLY);
 
+    wxStaticText* source_type_label = new wxStaticText(this, wxID_ANY, _L("Source Type:"));
+    wxArrayString source_types;
+    source_types.Add(_L("Built-in Camera"));
+    source_types.Add(_L("Web View"));
+    source_types.Add(_L("RTSP Stream"));
+    source_types.Add(_L("MJPEG Stream"));
+    m_source_type_combo = new wxComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(250), -1), source_types, wxCB_READONLY);
+    m_source_type_combo->SetSelection(0);
+    m_source_type_combo->Bind(wxEVT_COMBOBOX, &CameraEditDialog::on_source_type_changed, this);
+
     wxStaticText* url_label = new wxStaticText(this, wxID_ANY, _L("Camera URL:"));
     m_url_input = new TextInput(this, wxEmptyString, wxEmptyString, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(250), -1));
-    m_url_input->GetTextCtrl()->SetHint(_L("http://camera.local/stream"));
+    m_url_input->GetTextCtrl()->SetHint(_L("rtsp://user:pass@camera.local:554/stream"));
 
     wxStaticText* enabled_label = new wxStaticText(this, wxID_ANY, _L("Enabled:"));
     m_enabled_checkbox = new CheckBox(this);
 
     grid_sizer->Add(printer_label, 0, wxALIGN_CENTER_VERTICAL);
     grid_sizer->Add(m_printer_combo, 1, wxEXPAND);
+    grid_sizer->Add(source_type_label, 0, wxALIGN_CENTER_VERTICAL);
+    grid_sizer->Add(m_source_type_combo, 1, wxEXPAND);
     grid_sizer->Add(url_label, 0, wxALIGN_CENTER_VERTICAL);
     grid_sizer->Add(m_url_input, 1, wxEXPAND);
     grid_sizer->Add(enabled_label, 0, wxALIGN_CENTER_VERTICAL);
@@ -148,7 +164,8 @@ void CameraEditDialog::on_ok(wxCommandEvent& event)
         wxMessageBox(_L("Please select a printer"), _L("Error"), wxOK | wxICON_ERROR, this);
         return;
     }
-    if (m_url_input->GetTextCtrl()->GetValue().IsEmpty()) {
+    CameraSourceType type = get_source_type();
+    if (type != CameraSourceType::Builtin && m_url_input->GetTextCtrl()->GetValue().IsEmpty()) {
         wxMessageBox(_L("Please enter a camera URL"), _L("Error"), wxOK | wxICON_ERROR, this);
         return;
     }
@@ -169,9 +186,40 @@ std::string CameraEditDialog::get_url() const
     return m_url_input->GetTextCtrl()->GetValue().ToStdString();
 }
 
+CameraSourceType CameraEditDialog::get_source_type() const
+{
+    int sel = m_source_type_combo->GetSelection();
+    if (sel >= 0 && sel <= static_cast<int>(CameraSourceType::MJPEG)) {
+        return static_cast<CameraSourceType>(sel);
+    }
+    return CameraSourceType::Builtin;
+}
+
 bool CameraEditDialog::get_enabled() const
 {
     return m_enabled_checkbox->GetValue();
+}
+
+void CameraEditDialog::on_source_type_changed(wxCommandEvent& event)
+{
+    update_url_field_state();
+}
+
+void CameraEditDialog::update_url_field_state()
+{
+    CameraSourceType type = get_source_type();
+    bool needs_url = (type != CameraSourceType::Builtin);
+    m_url_input->Enable(needs_url);
+
+    if (type == CameraSourceType::RTSP) {
+        m_url_input->GetTextCtrl()->SetHint(_L("rtsp://user:pass@camera.local:554/stream"));
+    } else if (type == CameraSourceType::MJPEG) {
+        m_url_input->GetTextCtrl()->SetHint(_L("http://camera.local/mjpg/video.mjpg"));
+    } else if (type == CameraSourceType::WebView) {
+        m_url_input->GetTextCtrl()->SetHint(_L("http://camera.local/stream"));
+    } else {
+        m_url_input->GetTextCtrl()->SetHint(wxEmptyString);
+    }
 }
 
 void CameraEditDialog::on_dpi_changed(const wxRect& suggested_rect)
@@ -199,10 +247,11 @@ void CameraManagementDialog::create_ui()
     main_sizer->Add(title, 0, wxALL, FromDIP(15));
 
     m_list_ctrl = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxDV_SINGLE | wxDV_ROW_LINES);
-    m_list_ctrl->AppendTextColumn(_L("Printer"), wxDATAVIEW_CELL_INERT, FromDIP(150));
-    m_list_ctrl->AppendTextColumn(_L("Serial"), wxDATAVIEW_CELL_INERT, FromDIP(100));
-    m_list_ctrl->AppendTextColumn(_L("Camera URL"), wxDATAVIEW_CELL_INERT, FromDIP(200));
-    m_list_ctrl->AppendTextColumn(_L("Enabled"), wxDATAVIEW_CELL_INERT, FromDIP(70));
+    m_list_ctrl->AppendTextColumn(_L("Printer"), wxDATAVIEW_CELL_INERT, FromDIP(120));
+    m_list_ctrl->AppendTextColumn(_L("Serial"), wxDATAVIEW_CELL_INERT, FromDIP(80));
+    m_list_ctrl->AppendTextColumn(_L("Type"), wxDATAVIEW_CELL_INERT, FromDIP(70));
+    m_list_ctrl->AppendTextColumn(_L("Camera URL"), wxDATAVIEW_CELL_INERT, FromDIP(180));
+    m_list_ctrl->AppendTextColumn(_L("Enabled"), wxDATAVIEW_CELL_INERT, FromDIP(60));
 
     m_list_ctrl->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, &CameraManagementDialog::on_selection_changed, this);
     m_list_ctrl->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &CameraManagementDialog::on_item_activated, this);
@@ -242,6 +291,16 @@ void CameraManagementDialog::create_ui()
     CenterOnParent();
 }
 
+static wxString source_type_display_name(CameraSourceType type) {
+    switch (type) {
+        case CameraSourceType::Builtin: return _L("Built-in");
+        case CameraSourceType::WebView: return _L("WebView");
+        case CameraSourceType::RTSP:    return _L("RTSP");
+        case CameraSourceType::MJPEG:   return _L("MJPEG");
+    }
+    return _L("Built-in");
+}
+
 void CameraManagementDialog::refresh_list()
 {
     m_list_ctrl->DeleteAllItems();
@@ -251,6 +310,7 @@ void CameraManagementDialog::refresh_list()
         wxVector<wxVariant> data;
         data.push_back(wxVariant(get_printer_name_for_dev_id(pair.first)));
         data.push_back(wxVariant(truncate_serial(pair.first)));
+        data.push_back(wxVariant(source_type_display_name(pair.second.source_type)));
         data.push_back(wxVariant(pair.second.custom_source));
         data.push_back(wxVariant(pair.second.enabled ? _L("Yes") : _L("No")));
         m_list_ctrl->AppendItem(data, reinterpret_cast<wxUIntPtr>(new std::string(pair.first)));
@@ -267,6 +327,7 @@ void CameraManagementDialog::on_add(wxCommandEvent& event)
         PrinterCameraConfig config;
         config.dev_id = dlg.get_dev_id();
         config.custom_source = dlg.get_url();
+        config.source_type = dlg.get_source_type();
         config.enabled = dlg.get_enabled();
         wxGetApp().app_config->set_printer_camera(config);
         refresh_list();
@@ -284,7 +345,7 @@ void CameraManagementDialog::on_edit(wxCommandEvent& event)
     std::string dev_id = *dev_id_ptr;
     auto config = wxGetApp().app_config->get_printer_camera(dev_id);
 
-    CameraEditDialog dlg(this, dev_id, config.custom_source, config.enabled);
+    CameraEditDialog dlg(this, dev_id, config.custom_source, config.source_type, config.enabled);
     if (dlg.ShowModal() == wxID_OK) {
         if (dlg.get_dev_id() != dev_id) {
             wxGetApp().app_config->erase_printer_camera(dev_id);
@@ -293,6 +354,7 @@ void CameraManagementDialog::on_edit(wxCommandEvent& event)
         PrinterCameraConfig new_config;
         new_config.dev_id = dlg.get_dev_id();
         new_config.custom_source = dlg.get_url();
+        new_config.source_type = dlg.get_source_type();
         new_config.enabled = dlg.get_enabled();
         wxGetApp().app_config->set_printer_camera(new_config);
         refresh_list();
