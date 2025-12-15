@@ -12,6 +12,10 @@
 #include "TriangleSelector.hpp"
 #include "MaterialType.hpp"
 
+#include "Format/bbs_3mf.hpp"
+#include "Format/STEP.hpp"
+#include "Format/STL.hpp"
+#include "Format/OBJ.hpp"
 #include "Format/AMF.hpp"
 #include "Format/svg.hpp"
 // BBS

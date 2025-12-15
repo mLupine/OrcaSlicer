@@ -8,13 +8,13 @@
 #include <Message_ProgressIndicator.hxx>
 #include <atomic>
 #include "../LibraryContext.hpp"
+#include "libslic3r/Model.hpp"
 
 namespace fs = boost::filesystem;
 
 namespace Slic3r {
 
 class TriangleMesh;
-class ModelObject;
 
 // load step stage
 const int LOAD_STEP_STAGE_READ_FILE          = 0;
@@ -22,9 +22,6 @@ const int LOAD_STEP_STAGE_GET_SOLID          = 1;
 const int LOAD_STEP_STAGE_GET_MESH           = 2;
 const int LOAD_STEP_STAGE_NUM                = 3;
 const int LOAD_STEP_STAGE_UNIT_NUM           = 5;
-
-typedef std::function<void(int load_stage, int current, int total, bool& cancel)> ImportStepProgressFn;
-typedef std::function<void(bool isUtf8)> StepIsUtf8Fn;
 
 struct NamedSolid
 {

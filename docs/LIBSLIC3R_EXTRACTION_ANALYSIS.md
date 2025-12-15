@@ -43,7 +43,7 @@
 | P1-01 | Create `LibraryContext` class | HIGH | ✅ | See [P1-01 Implementation Details](#p1-01-implementation-details) |
 | P1-02 | Split `AppConfig` → Move to application layer | CRITICAL | ✅ | See [P1-02 Implementation Details](#p1-02-implementation-details) |
 | P1-03 | Remove unused GUI::OptionsGroup forward declaration | LOW | ✅ | Already removed from Config.hpp |
-| P1-04 | Reverse Model.hpp → Format includes | MEDIUM | ⬜ | Move to Model.cpp |
+| P1-04 | Reverse Model.hpp → Format includes | MEDIUM | ✅ | See [P1-04 Implementation Details](#p1-04-implementation-details) |
 
 ### Phase 2: Configuration Refactoring
 
@@ -321,17 +321,51 @@ See: `docs/plans/2025-12-15-P1-02-appconfig-split-design.md`
 
 Verified that `src/libslic3r/Config.hpp` and the entire `src/libslic3r` directory no longer contain the `GUI::OptionsGroup` forward declaration or any references to `OptionsGroup`. The code appears to have been cleaned up in a previous iteration.
 
+---
+
+### P1-04 Implementation Details
+
+**Status**: ✅ Complete
+**Date**: December 2025
+
+#### Summary
+
+Reversed the dependency direction between `Model.hpp` and Format headers. `Model.hpp` no longer includes format headers (`STEP.hpp`, `STL.hpp`, `OBJ.hpp`, `bbs_3mf.hpp`). Instead, format headers include `Model.hpp` or use forward declarations where possible.
+
+#### Key Changes
+
+1.  **Model.hpp Cleanup**:
+    *   Removed `#include "Format/..."` directives.
+    *   Added forward declarations (e.g., `class Step;`) to resolve circular references.
+    *   Moved implementation-specific includes to `Model.cpp`.
+
+2.  **Format Header Updates**:
+    *   `src/libslic3r/Format/STEP.hpp`: Restored `class Step` definition here (was previously moved to Model.hpp incorrectly in an intermediate state). Added `#include "libslic3r/Model.hpp"`.
+    *   `src/libslic3r/Format/OBJ.hpp`: Added `#include "libslic3r/Model.hpp"`.
+    *   `src/libslic3r/Format/bbs_3mf.hpp`: Added `#include "libslic3r/Model.hpp"`.
+
+3.  **New Abstraction**:
+    *   Created `src/libslic3r/ModelBackup.hpp` to extract backup-related function declarations from `bbs_3mf.hpp` that were polluting `Model.hpp`. This further decouples the core Model from specific 3MF implementation details.
+
+#### Files Modified
+*   `src/libslic3r/Model.hpp`
+*   `src/libslic3r/Model.cpp`
+*   `src/libslic3r/Format/STEP.hpp`
+*   `src/libslic3r/Format/OBJ.hpp`
+*   `src/libslic3r/Format/bbs_3mf.hpp`
+*   `src/libslic3r/ModelBackup.hpp` (New file)
+
 ### Summary Statistics
 
 | Category | Total | ⬜ | 🟡 | ✅ | ⏸️ | ❌ |
 |----------|-------|----|----|----|----|-----|
-| Phase 1: Preparation | 4 | 1 | 0 | 3 | 0 | 0 |
+| Phase 1: Preparation | 4 | 0 | 0 | 4 | 0 | 0 |
 | Phase 2: Configuration | 5 | 5 | 0 | 0 | 0 | 0 |
 | Phase 3: Model Cleanup | 7 | 7 | 0 | 0 | 0 | 0 |
 | Phase 4: Format Separation | 9 | 9 | 0 | 0 | 0 | 0 |
 | Phase 5: Build System | 9 | 9 | 0 | 0 | 0 | 0 |
 | Already Complete | 5 | 0 | 0 | 5 | 0 | 0 |
-| **Total** | **39** | **31** | **0** | **8** | **0** | **0** |
+| **Total** | **39** | **30** | **0** | **9** | **0** | **0** |
 
 ---
 
@@ -1525,3 +1559,4 @@ External Integration:
 - *P1-01 LibraryContext completed and verified.*
 - *P1-02 AppConfig moved to application layer with adapter pattern.*
 - *P1-03 GUI::OptionsGroup verification (already removed).*
+- *P1-04 Reversed Model.hpp dependency direction and extracted ModelBackup.*

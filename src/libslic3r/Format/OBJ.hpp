@@ -1,12 +1,11 @@
 #ifndef slic3r_Format_OBJ_hpp_
 #define slic3r_Format_OBJ_hpp_
 #include "libslic3r/Color.hpp"
+#include "libslic3r/Model.hpp"
 #include <unordered_map>
 namespace Slic3r {
 
 class TriangleMesh;
-class Model;
-class ModelObject;
 // Load an OBJ file into a provided model.
 struct ObjInfo {
     std::vector<RGBA> vertex_colors;
@@ -31,7 +30,6 @@ struct ObjDialogInOut
     Model *                    model{nullptr};
     std::string lost_material_name{""};
 };
-typedef std::function<void(ObjDialogInOut &in_out)> ObjImportColorFn;
 extern bool load_obj(const char *path, TriangleMesh *mesh, ObjInfo &vertex_colors, std::string &message);
 extern bool load_obj(const char *path, Model *model, ObjInfo &vertex_colors, std::string &message, const char *object_name = nullptr);
 

@@ -20,13 +20,9 @@
 #include "TriangleSelector.hpp"
 #include "LibraryContext.hpp"
 
-//BBS: add bbs 3mf
-#include "Format/bbs_3mf.hpp"
-//BBS: add step
-#include "Format/STEP.hpp"
-//BBS: add stl
-#include "Format/STL.hpp"
-#include "Format/OBJ.hpp"
+#include <admesh/stl.h>
+#include "Semver.hpp"
+#include "ModelBackup.hpp"
 
 #include <map>
 #include <memory>
@@ -47,6 +43,41 @@ namespace cereal {
 }
 
 namespace Slic3r {
+class Step;
+struct PlateData;
+struct ObjDialogInOut;
+typedef std::vector<PlateData*> PlateDataPtrs;
+typedef std::function<void(int import_stage, int current, int total, bool& cancel)> Import3mfProgressFn;
+typedef std::function<void(int load_stage, int current, int total, bool& cancel)> ImportStepProgressFn;
+typedef std::function<void(bool isUtf8)> StepIsUtf8Fn;
+typedef std::function<void(ObjDialogInOut &in_out)> ObjImportColorFn;
+
+enum class LoadStrategy
+{
+    Default = 0,
+    AddDefaultInstances = 1,
+    CheckVersion = 2,
+    LoadModel = 4,
+    LoadConfig = 8,
+    LoadAuxiliary = 16,
+    Silence = 32,
+    ImperialUnits = 64,
+
+    Restore = 0x10000 | LoadModel | LoadConfig | LoadAuxiliary | Silence,
+};
+
+inline LoadStrategy operator | (LoadStrategy lhs, LoadStrategy rhs)
+{
+    using T = std::underlying_type_t <LoadStrategy>;
+    return static_cast<LoadStrategy>(static_cast<T>(lhs) | static_cast<T>(rhs));
+}
+
+inline bool operator & (LoadStrategy & lhs, LoadStrategy rhs)
+{
+    using T = std::underlying_type_t <LoadStrategy>;
+    return (static_cast<T>(lhs) & static_cast<T>(rhs)) == static_cast<T>(rhs);
+}
+
 enum class ConversionType;
 
 class BuildVolume;
@@ -64,6 +95,7 @@ class Preset;
 class BBLProject;
 
 class KeyStore;
+
 
 namespace UndoRedo {
 	class StackImpl;
