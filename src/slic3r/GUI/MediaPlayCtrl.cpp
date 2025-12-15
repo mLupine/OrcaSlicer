@@ -3,7 +3,7 @@
 #include "Widgets/CheckBox.hpp"
 #include "Widgets/Label.hpp"
 #include "GUI_App.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "I18N.hpp"
 #include "MsgDialog.hpp"
 #include "DownloadProgressDialog.hpp"

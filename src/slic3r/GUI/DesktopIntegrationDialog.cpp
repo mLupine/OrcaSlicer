@@ -5,7 +5,7 @@
 #include "format.hpp"
 #include "I18N.hpp"
 #include "NotificationManager.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Platform.hpp"
 #include "libslic3r/Config.hpp"

@@ -4,7 +4,6 @@
 #include "Exception.hpp"
 #include "Preset.hpp"
 #include "PresetBundle.hpp"
-#include "AppConfig.hpp"
 
 #ifdef _MSC_VER
     #define WIN32_LEAN_AND_MEAN
@@ -49,6 +48,7 @@
 #include "libslic3r/GCode/Thumbnails.hpp"
 
 using boost::property_tree::ptree;
+using json = nlohmann::json;
 
 namespace Slic3r {
 
@@ -728,9 +728,8 @@ bool is_compatible_with_printer(const PresetWithVendorProfile &preset, const Pre
     return is_compatible_with_printer(preset, active_printer, &config);
 }
 
-void Preset::set_visible_from_appconfig(const AppConfig &app_config)
+void Preset::set_visible_from_config(const PresetVisibilityConfig &visibility_config)
 {
-    //BBS: add config related log
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": name %1%, is_visible %2%")%name % is_visible;
     if (vendor == nullptr) { return; }
 
@@ -738,24 +737,24 @@ void Preset::set_visible_from_appconfig(const AppConfig &app_config)
         const std::string &model = config.opt_string("printer_model");
         const std::string &variant = config.opt_string("printer_variant");
         if (model.empty() || variant.empty())
-        	return;
-        is_visible = app_config.get_variant(vendor->id, model, variant);
+            return;
+        auto it_vendor = visibility_config.installed_variants.find(vendor->id);
+        if (it_vendor != visibility_config.installed_variants.end()) {
+            auto it_model = it_vendor->second.find(model);
+            is_visible = it_model != it_vendor->second.end() && it_model->second.find(variant) != it_model->second.end();
+        } else {
+            is_visible = false;
+        }
     } else if (type == TYPE_FILAMENT || type == TYPE_SLA_MATERIAL) {
-    	const std::string &section_name = (type == TYPE_FILAMENT) ? AppConfig::SECTION_FILAMENTS : AppConfig::SECTION_MATERIALS;
-    	if (app_config.has_section(section_name)) {
-            // Check whether this profile is marked as "installed" in PrusaSlicer.ini,
-    		// or whether a profile is marked as "installed", which this profile may have been renamed from.
-	    	const std::map<std::string, std::string> &installed = app_config.get_section(section_name);
-	    	auto has = [&installed](const std::string &name) {
-	    		auto it = installed.find(name);
-				return it != installed.end() && ! it->second.empty();
-	    	};
-	    	is_visible = has(this->name);
-	    	for (auto it = this->renamed_from.begin(); ! is_visible && it != this->renamed_from.end(); ++ it)
-	    		is_visible = has(*it);
-	    }
+        const std::set<std::string> &installed = (type == TYPE_FILAMENT)
+            ? visibility_config.installed_filaments
+            : visibility_config.installed_materials;
+        if (!installed.empty()) {
+            is_visible = installed.find(this->name) != installed.end();
+            for (auto it = this->renamed_from.begin(); ! is_visible && it != this->renamed_from.end(); ++ it)
+                is_visible = installed.find(*it) != installed.end();
+        }
     }
-    //BBS: add config related log
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": name %1%, is_visible set to %2%")%name % is_visible;
 }
 

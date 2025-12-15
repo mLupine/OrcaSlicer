@@ -553,6 +553,8 @@ set(SLIC3R_GUI_SOURCES
     pchheader.hpp
     Utils/ASCIIFolding.cpp
     Utils/ASCIIFolding.hpp
+    Utils/AppConfig.cpp
+    Utils/AppConfig.hpp
     Utils/AstroBox.cpp
     Utils/AstroBox.hpp
     Utils/bambu_networking.hpp
@@ -600,6 +602,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/Obico.hpp
     Utils/OctoPrint.cpp
     Utils/OctoPrint.hpp
+    Utils/PresetBundleAdapter.cpp
+    Utils/PresetBundleAdapter.hpp
     Utils/PresetUpdater.cpp
     Utils/PresetUpdater.hpp
     Utils/PrintHost.cpp

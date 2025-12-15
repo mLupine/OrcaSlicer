@@ -1,7 +1,7 @@
 #include "Tab.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Model.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "slic3r/Utils/bambu_networking.hpp"
 
 #include <wx/app.h>

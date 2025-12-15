@@ -9,7 +9,7 @@
 #include <wx/filename.h>
 #include <wx/filepicker.h>
 
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "slic3r/GUI/I18N.hpp"
 
 #include "slic3r/GUI/GUI.hpp"

@@ -4,7 +4,7 @@
 #include "Plater.hpp"
 #include "GUI_App.hpp"
 #include "MsgDialog.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 
 #include <wx/utils.h>
 #include <boost/algorithm/string/split.hpp>

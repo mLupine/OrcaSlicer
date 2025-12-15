@@ -111,6 +111,7 @@
 #include "../Utils/UndoRedo.hpp"
 #include "../Utils/PresetUpdater.hpp"
 #include "../Utils/Process.hpp"
+#include "../Utils/PresetBundleAdapter.hpp"
 #include "RemovableDriveManager.hpp"
 #include "InstanceCheck.hpp"
 #include "NotificationManager.hpp"
@@ -2616,7 +2617,7 @@ void Sidebar::update_presets(Preset::Type preset_type)
     }
 
     // Synchronize config.ini with the current selections.
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
 
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": exit.");
 }
@@ -2647,7 +2648,7 @@ void Sidebar::update_presets_from_to(Slic3r::Preset::Type preset_type, std::stri
     }
 
     // Synchronize config.ini with the current selections.
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
 
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": exit!");
 }
@@ -3095,7 +3096,7 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     wxGetApp().plater()->get_partplate_list().on_filament_deleted(filament_count, filament_id);
     wxGetApp().plater()->on_filaments_delete(filament_count, filament_id, replace_filament_id > (int)filament_id ? (replace_filament_id - 1) : replace_filament_id);
     wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
 
     wxGetApp().plater()->update();
 }
@@ -3123,7 +3124,7 @@ void Sidebar::add_custom_filament(wxColour new_col) {
     wxGetApp().plater()->get_partplate_list().on_filament_added(filament_count);
     wxGetApp().plater()->on_filament_count_change(filament_count);
     wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
     auto_calc_flushing_volumes(filament_count - 1);
 }
 
@@ -3351,7 +3352,7 @@ void Sidebar::sync_ams_list(bool is_from_big_sync_btn)
         m_sync_dlg->deal_only_exist_ext_spool(obj);
         if (m_sync_dlg->is_dirty_filament()) {
             wxGetApp().get_tab(Preset::TYPE_FILAMENT)->select_preset(wxGetApp().preset_bundle->filament_presets[0], false, "", false, true);
-            wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+            export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
             dynamic_filament_list.update();
         }
         m_sync_dlg->set_check_dirty_fialment(false);
@@ -3502,7 +3503,7 @@ void Sidebar::sync_ams_list(bool is_from_big_sync_btn)
     Layout();
 
     wxGetApp().get_tab(Preset::TYPE_FILAMENT)->select_preset(wxGetApp().preset_bundle->filament_presets[0]);
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
     update_dynamic_filament_list();
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "begin pop_finsish_sync_ams_dialog";
     pop_finsish_sync_ams_dialog();
@@ -3896,7 +3897,7 @@ void Sidebar::auto_calc_flushing_volumes(const int filament_idx, const int extru
         }
     }
 
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
     wxGetApp().plater()->update_project_dirty_from_presets();
     wxPostEvent(this, SimpleEvent(EVT_SCHEDULE_BACKGROUND_PROCESS, this));
     auto has_modify = is_flush_config_modified();
@@ -8924,7 +8925,7 @@ void Plater::priv::on_select_preset(wxCommandEvent &evt)
     if (preset_type == Preset::TYPE_FILAMENT) {
         wxGetApp().preset_bundle->set_filament_preset(idx, preset_name);
         wxGetApp().plater()->update_project_dirty_from_presets();
-        wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+        export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
         sidebar->update_dynamic_filament_list();
         bool flag_is_change = is_support_filament(idx);
         if (flag != flag_is_change && wxGetApp().app_config->get("auto_calculate_flush") == "all") {
@@ -11151,7 +11152,7 @@ void Plater::priv::undo_redo_to(std::vector<UndoRedo::Snapshot>::const_iterator 
             app_config->set("presets", PRESET_PRINTER_NAME, (new_printer_technology == ptFFF) ? m_last_fff_printer_profile_name : m_last_sla_printer_profile_name);
             //FIXME Why are we reloading the whole preset bundle here? Please document. This is fishy and it is unnecessarily expensive.
             // Anyways, don't report any config value substitutions, they have been already reported to the user at application start up.
-            wxGetApp().preset_bundle->load_presets(*app_config, ForwardCompatibilitySubstitutionRule::EnableSilent);
+            load_preset_bundle_presets(*wxGetApp().preset_bundle, *app_config, ForwardCompatibilitySubstitutionRule::EnableSilent);
             // load_current_presets() calls Tab::load_current_preset() -> TabPrint::update() -> Object_list::update_and_show_object_settings_item(),
             // but the Object list still keeps pointer to the old Model. Avoid a crash by removing selection first.
             this->sidebar->obj_list()->unselect_objects();
@@ -11511,7 +11512,7 @@ void Plater::load_project(wxString const& filename2,
 
     reset_project_dirty_initial_presets();
     update_project_dirty_from_presets();
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
 
     // if res is empty no data has been loaded
     if (!res.empty() && (load_restore || !(strategy & LoadStrategy::Silence))) {

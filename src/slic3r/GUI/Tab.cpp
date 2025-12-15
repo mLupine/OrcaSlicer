@@ -7,6 +7,7 @@
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "slic3r/Utils/PresetBundleAdapter.hpp"
 
 #include "Search.hpp"
 #include "OG_CustomCtrl.hpp"
@@ -1882,7 +1883,7 @@ void Tab::on_value_change(const std::string& opt_key, const boost::any& value)
         wxGetApp().preset_bundle->set_num_filaments(num_extruder, new_colors);
         wxGetApp().plater()->on_filament_count_change(num_extruder);
         wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
-        wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+        export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
     }
 
     //Orca: disable purge_in_prime_tower if single_extruder_multi_material is disabled
@@ -5918,7 +5919,7 @@ bool Tab::select_preset(
 
         // Orca: update presets for the selected printer
         if (m_type == Preset::TYPE_PRINTER && wxGetApp().app_config->get_bool("remember_printer_config")) {
-            m_preset_bundle->update_selections(*wxGetApp().app_config);
+            update_preset_bundle_selections(*m_preset_bundle, *wxGetApp().app_config);
             wxGetApp().plater()->sidebar().on_filament_count_change(m_preset_bundle->filament_presets.size());
         }
         load_current_preset();

@@ -45,6 +45,7 @@
 #include "DesktopIntegrationDialog.hpp"
 #include "slic3r/Config/Snapshot.hpp"
 #include "slic3r/Utils/PresetUpdater.hpp"
+#include "slic3r/Utils/PresetBundleAdapter.hpp"
 #include "format.hpp"
 #include "MsgDialog.hpp"
 #include "UnsavedChangesDialog.hpp"
@@ -1861,7 +1862,7 @@ void ConfigWizard::priv::load_vendors()
 
     // Initialize the is_visible flag in printer Presets
     for (auto &pair : bundles) {
-        pair.second.preset_bundle->load_installed_printers(appconfig_new);
+        load_preset_bundle_installed_printers(*pair.second.preset_bundle, appconfig_new);
     }
 
     // Copy installed filaments and SLA material names from app_config to appconfig_new
@@ -2578,7 +2579,7 @@ bool ConfigWizard::priv::apply_config(AppConfig *app_config, PresetBundle *prese
     app_config->set_vendors(appconfig_new);
 
     if (check_unsaved_preset_changes)
-        preset_bundle->load_presets(*app_config, ForwardCompatibilitySubstitutionRule::EnableSilentDisableSystem, 
+        load_preset_bundle_presets(*preset_bundle, *app_config, ForwardCompatibilitySubstitutionRule::EnableSilentDisableSystem,
                                     {preferred_model, preferred_variant, first_added_filament, first_added_sla_material});
 
     if (!only_sla_mode && page_custom->custom_wanted()) {
@@ -2607,7 +2608,7 @@ bool ConfigWizard::priv::apply_config(AppConfig *app_config, PresetBundle *prese
     }
 
     // Update the selections from the compatibilty.
-    preset_bundle->export_selections(*app_config);
+    export_preset_bundle_selections(*preset_bundle, *app_config);
 
     // Update Preset Combobox
     //auto evt = new SimpleEvent(EVT_UPDATE_PRESET_CB);

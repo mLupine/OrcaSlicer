@@ -17,6 +17,7 @@
 #include "libslic3r/Config.hpp"
 #include "libslic3r/FileParserError.hpp"
 #include "libslic3r/Utils.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 //BBS
 #include "libslic3r/Preset.hpp"
 

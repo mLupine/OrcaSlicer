@@ -6,7 +6,7 @@
 #include "GLCanvas3D.hpp"
 #include "MainFrame.hpp"
 #include "Tab.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/PresetBundle.hpp"

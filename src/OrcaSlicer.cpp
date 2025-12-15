@@ -67,7 +67,7 @@ using namespace nlohmann;
 #include "libslic3r/BlacklistedLibraryCheck.hpp"
 #include "libslic3r/FlushVolCalc.hpp"
 #include "libslic3r/LibraryContext.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "libslic3r/Shape/TextShape.hpp"
 #include "libslic3r/Format/STEP.hpp"
 

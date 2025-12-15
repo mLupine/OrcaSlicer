@@ -18,6 +18,7 @@
 #include "slic3r/GUI/Jobs/UpgradeNetworkJob.hpp"
 #include "slic3r/GUI/HttpServer.hpp"
 #include "../Utils/PrintHost.hpp"
+#include "../Utils/AppConfig.hpp"
 
 #include <wx/app.h>
 #include <wx/colour.h>

@@ -8,7 +8,7 @@
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Geometry.hpp"

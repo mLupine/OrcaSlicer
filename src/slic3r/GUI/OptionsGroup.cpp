@@ -16,7 +16,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include "libslic3r/Exception.hpp"
 #include "libslic3r/Utils.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "I18N.hpp"
 #include <locale>
 

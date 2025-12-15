@@ -2,7 +2,7 @@
 #include "GUI_App.hpp"
 #include <slic3r/GUI/I18N.hpp>
 #include <slic3r/GUI/Widgets/Label.hpp>
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 
 #include "DeviceCore/DevManager.h"
 

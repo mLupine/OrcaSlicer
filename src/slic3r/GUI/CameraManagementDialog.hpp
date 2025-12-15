@@ -5,7 +5,7 @@
 #include "Widgets/Button.hpp"
 #include "Widgets/TextInput.hpp"
 #include "Widgets/CheckBox.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include <wx/dataview.h>
 
 namespace Slic3r { namespace GUI {

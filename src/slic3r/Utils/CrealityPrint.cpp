@@ -21,7 +21,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "Http.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "AppConfig.hpp"
 #include "Bonjour.hpp"
 #include "slic3r/GUI/BonjourDialog.hpp"
 

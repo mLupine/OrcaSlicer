@@ -8,7 +8,7 @@
 
 #ifdef _WIN32
     #include <Windows.h>
-    #include "libslic3r/AppConfig.hpp"
+    #include "slic3r/Utils/AppConfig.hpp"
     #include <wx/msw/registry.h>
 #endif // _WIN32
 

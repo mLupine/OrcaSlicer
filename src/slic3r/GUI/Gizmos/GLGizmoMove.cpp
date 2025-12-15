@@ -3,7 +3,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 //BBS: GUI refactor
 #include "slic3r/GUI/Plater.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 
 
 #include <GL/glew.h>

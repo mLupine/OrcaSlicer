@@ -38,6 +38,7 @@
 #include "../Utils/FixModelByWin10.hpp"
 #include "../Utils/UndoRedo.hpp"
 #include "../Utils/ColorSpaceConvert.hpp"
+#include "../Utils/PresetBundleAdapter.hpp"
 #include "BitmapCache.hpp"
 #include "SavePresetDialog.hpp"
 #include "MsgDialog.hpp"
@@ -767,7 +768,7 @@ bool PresetComboBox::selection_is_changed_according_to_physical_printers()
         if (dynamic_cast<PlaterPresetComboBox*>(this)!=nullptr) {
             wxGetApp().get_tab(m_type)->update_preset_choice();
             // Synchronize config.ini with the current selections.
-            m_preset_bundle->export_selections(*wxGetApp().app_config);
+            export_preset_bundle_selections(*m_preset_bundle, *wxGetApp().app_config);
         }
         else if (dynamic_cast<TabPresetComboBox*>(this)!=nullptr)
             wxGetApp().sidebar().update_presets(m_type);
@@ -1473,7 +1474,7 @@ void PlaterPresetComboBox::sync_colour_config(const std::vector<std::string> &cl
 
     wxGetApp().plater()->update_project_dirty_from_presets();
 
-    wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
     update();  // refresh the preset combobox with new config
 
     wxGetApp().plater()->on_config_change(cfg_new);

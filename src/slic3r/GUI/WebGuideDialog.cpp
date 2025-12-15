@@ -6,8 +6,9 @@
 #include <boost/iostreams/detail/select.hpp>
 #include <string.h>
 #include "I18N.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "slic3r/Utils/PresetBundleAdapter.hpp"
 #include "slic3r/GUI/wxExtensions.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "libslic3r_version.h"
@@ -843,11 +844,11 @@ bool GuideFrame::apply_config(AppConfig *app_config, PresetBundle *preset_bundle
     app_config->set_vendors(m_appconfig_new);
 
     if (check_unsaved_preset_changes)
-        preset_bundle->load_presets(*app_config, ForwardCompatibilitySubstitutionRule::Enable,
+        load_preset_bundle_presets(*preset_bundle, *app_config, ForwardCompatibilitySubstitutionRule::Enable,
                                     {preferred_model, preferred_variant, first_added_filament, std::string()});
 
     // Update the selections from the compatibilty.
-    preset_bundle->export_selections(*app_config);
+    export_preset_bundle_selections(*preset_bundle, *app_config);
 
     return true;
 }
@@ -860,7 +861,7 @@ bool GuideFrame::run()
 
     //p->set_run_reason(reason);
     //p->set_start_page(start_page);
-    app.preset_bundle->export_selections(*app.app_config);
+    export_preset_bundle_selections(*app.preset_bundle, *app.app_config);
 
     BOOST_LOG_TRIVIAL(info) << "GuideFrame before ShowModal";
     // display position
@@ -900,7 +901,7 @@ bool GuideFrame::run()
             app.app_config->set_variant(PresetBundle::ORCA_DEFAULT_BUNDLE,
                 PresetBundle::ORCA_DEFAULT_PRINTER_MODEL, PresetBundle::ORCA_DEFAULT_PRINTER_VARIANT, "true");
             app.app_config->clear_section(AppConfig::SECTION_FILAMENTS);
-            app.preset_bundle->load_selections(*app.app_config, {PresetBundle::ORCA_DEFAULT_PRINTER_MODEL, PresetBundle::ORCA_DEFAULT_PRINTER_VARIANT, PresetBundle::ORCA_DEFAULT_FILAMENT, std::string()});
+            load_preset_bundle_selections(*app.preset_bundle, *app.app_config, {PresetBundle::ORCA_DEFAULT_PRINTER_MODEL, PresetBundle::ORCA_DEFAULT_PRINTER_VARIANT, PresetBundle::ORCA_DEFAULT_FILAMENT, std::string()});
 
             app.app_config->set_legacy_datadir(false);
             app.update_mode();

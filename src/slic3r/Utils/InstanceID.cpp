@@ -19,7 +19,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/nowide/fstream.hpp>
 
-#include "libslic3r/AppConfig.hpp"
+#include "AppConfig.hpp"
 #include "libslic3r/Utils.hpp"
 
 namespace Slic3r {

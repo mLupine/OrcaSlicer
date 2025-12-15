@@ -6,7 +6,7 @@
 #include "GUI_App.hpp"
 #include "I18N.hpp"
 #include "slic3r/Utils/Http.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include <boost/asio/ip/address.hpp>
 #include <boost/log/trivial.hpp>
 

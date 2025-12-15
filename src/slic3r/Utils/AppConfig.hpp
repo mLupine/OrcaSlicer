@@ -11,7 +11,7 @@
 #include "libslic3r/Semver.hpp"
 #include "libslic3r/LibraryContext.hpp"
 #include "libslic3r/Utils.hpp"
-#include "calib.hpp"
+#include "libslic3r/calib.hpp"
 
 using namespace nlohmann;
 

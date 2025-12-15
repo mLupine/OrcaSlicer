@@ -1,5 +1,5 @@
 #include "libslic3r/libslic3r.h"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 
 #include "Camera.hpp"
 #include "GUI_App.hpp"

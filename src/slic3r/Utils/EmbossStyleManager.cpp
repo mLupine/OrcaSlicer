@@ -2,7 +2,7 @@
 #include <optional>
 #include <GL/glew.h> // Imgui texture
 #include <imgui/imgui_internal.h> // ImTextCharFromUtf8
-#include <libslic3r/AppConfig.hpp>
+#include "AppConfig.hpp"
 #include <libslic3r/Utils.hpp> // ScopeGuard
 
 #include "WxFontUtils.hpp"
@@ -532,8 +532,6 @@ bool StyleManager::set_wx_font(const wxFont &wx_font, std::unique_ptr<FontFile> 
     return true;
 }
 
-#include <libslic3r/AppConfig.hpp>
-#include "WxFontUtils.hpp"
 #include "fast_float/fast_float.h"
 
 // StylesSerializable

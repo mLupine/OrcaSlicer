@@ -2,11 +2,11 @@
 #include "libslic3r/Utils.hpp"
 #include "AppConfig.hpp"
 //BBS
-#include "Preset.hpp"
-#include "Exception.hpp"
-#include "LocalesUtils.hpp"
-#include "Thread.hpp"
-#include "format.hpp"
+#include "libslic3r/Preset.hpp"
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/Thread.hpp"
+#include "libslic3r/format.hpp"
 #include "nlohmann/json.hpp"
 
 #include <utility>

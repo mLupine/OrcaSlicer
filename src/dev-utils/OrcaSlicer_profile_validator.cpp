@@ -2,9 +2,11 @@
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "libslic3r/LibraryContext.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Utils.hpp"
+#include "slic3r/Utils/PresetBundleAdapter.hpp"
 #include <boost/filesystem/operations.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
@@ -158,7 +160,7 @@ int main(int argc, char* argv[])
         preset_bundle->remove_user_presets_directory("default");
 
     try {
-        auto preset_substitutions = preset_bundle->load_presets(app_config, ForwardCompatibilitySubstitutionRule::Disable);
+        auto preset_substitutions = load_preset_bundle_presets(*preset_bundle, app_config, ForwardCompatibilitySubstitutionRule::Disable);
     } catch (const std::exception& ex) {
         BOOST_LOG_TRIVIAL(error) << ex.what();
         std::cout << "Validation failed" << std::endl;

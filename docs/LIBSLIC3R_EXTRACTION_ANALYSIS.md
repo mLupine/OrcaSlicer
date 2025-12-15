@@ -41,7 +41,7 @@
 | ID | Issue | Severity | Status | Notes |
 |----|-------|----------|--------|-------|
 | P1-01 | Create `LibraryContext` class | HIGH | ✅ | See [P1-01 Implementation Details](#p1-01-implementation-details) |
-| P1-02 | Split `AppConfig` → `LibraryConfig` + `ApplicationConfig` | CRITICAL | ⬜ | Affects 57+ files |
+| P1-02 | Split `AppConfig` → Move to application layer | CRITICAL | ✅ | See [P1-02 Implementation Details](#p1-02-implementation-details) |
 | P1-03 | Remove unused `GUI::OptionsGroup` forward declaration | LOW | ⬜ | Single line in Config.hpp |
 | P1-04 | Reverse Model.hpp → Format includes | MEDIUM | ⬜ | Move to Model.cpp |
 
@@ -215,17 +215,114 @@ Full build verified with:
 
 ---
 
+### P1-02 Implementation Details
+
+**Status**: ✅ Complete
+**Build Verified**: Full build passes
+**Date**: December 2025
+
+#### Summary
+
+Moved `AppConfig` entirely from `libslic3r` to the application layer (`src/slic3r/Utils/`). Created adapter functions to bridge between application-layer `AppConfig` and library-safe methods.
+
+#### Key Design Decision: Adapter Pattern
+
+Instead of splitting AppConfig into two classes, we:
+1. Moved AppConfig entirely to application layer
+2. Created library-safe data structs in libslic3r
+3. Created adapter functions that convert AppConfig data to library structs
+
+This provides cleaner separation - libslic3r has zero AppConfig dependency.
+
+#### New Data Structures (libslic3r)
+
+**Preset.hpp:**
+```cpp
+struct PresetVisibilityConfig {
+    std::map<std::string, std::map<std::string, std::set<std::string>>> installed_variants;
+    std::set<std::string> installed_filaments;
+    std::set<std::string> installed_materials;
+};
+```
+
+**PresetBundle.hpp:**
+```cpp
+struct PresetSelections { /* printer, print, filament selections */ };
+struct PrinterSettingsConfig { /* printer-specific settings */ };
+struct ExportedSelections { /* selections for export */ };
+struct InstalledFilamentsUpdate { /* filaments to install */ };
+struct InstalledMaterialsUpdate { /* materials to install */ };
+```
+
+#### Adapter Functions (slic3r/Utils/PresetBundleAdapter.hpp)
+
+```cpp
+namespace Slic3r {
+    void set_preset_visible_from_appconfig(Preset&, const AppConfig&);
+    PresetsConfigSubstitutions load_preset_bundle_presets(PresetBundle&, AppConfig&, ...);
+    void load_preset_bundle_selections(PresetBundle&, AppConfig&, ...);
+    void export_preset_bundle_selections(PresetBundle&, AppConfig&);
+    void update_preset_bundle_selections(PresetBundle&, AppConfig&);
+    void load_preset_bundle_installed_printers(PresetBundle&, const AppConfig&);
+    void load_preset_bundle_installed_filaments(PresetBundle&, AppConfig&);
+    void load_preset_bundle_installed_sla_materials(PresetBundle&, AppConfig&);
+}
+```
+
+#### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/slic3r/Utils/PresetBundleAdapter.hpp` | Adapter function declarations |
+| `src/slic3r/Utils/PresetBundleAdapter.cpp` | Adapter function implementations |
+
+#### Files Moved
+
+```
+src/libslic3r/AppConfig.hpp → src/slic3r/Utils/AppConfig.hpp
+src/libslic3r/AppConfig.cpp → src/slic3r/Utils/AppConfig.cpp
+```
+
+#### Files Modified
+
+**libslic3r (Core Library):**
+- `Preset.hpp` - Added `PresetVisibilityConfig`, `set_visible_from_config()`
+- `Preset.cpp` - Implemented `set_visible_from_config()`, added `using json = nlohmann::json;`
+- `PresetBundle.hpp` - Added config structs, removed AppConfig method declarations
+- `PresetBundle.cpp` - Removed AppConfig methods, added `using json = nlohmann::json;`
+- `Model.hpp` - Removed unused `#include "AppConfig.hpp"`
+- `CMakeLists.txt` - Removed AppConfig files
+
+**Application Layer:**
+- `slic3r/CMakeLists.txt` - Added AppConfig and PresetBundleAdapter files
+- `src/CMakeLists.txt` - Added libslic3r_gui to profile validator linking
+- ~50 GUI files - Updated include paths
+- ~10 files - Updated to use adapter functions (GUI_App, Plater, Tab, ConfigWizard, etc.)
+
+#### Build Verification
+
+Full build verified:
+- All compilation units pass
+- No AppConfig includes remain in libslic3r
+- libslic3r can compile without AppConfig dependency
+
+#### Detailed Plan Document
+
+See: `docs/plans/2025-12-15-P1-02-appconfig-split-design.md`
+
+---
+
 ### Summary Statistics
 
 | Category | Total | ⬜ | 🟡 | ✅ | ⏸️ | ❌ |
 |----------|-------|----|----|----|----|-----|
-| Phase 1: Preparation | 4 | 3 | 0 | 1 | 0 | 0 |
+| Phase 1: Preparation | 4 | 2 | 0 | 2 | 0 | 0 |
 | Phase 2: Configuration | 5 | 5 | 0 | 0 | 0 | 0 |
 | Phase 3: Model Cleanup | 7 | 7 | 0 | 0 | 0 | 0 |
 | Phase 4: Format Separation | 9 | 9 | 0 | 0 | 0 | 0 |
 | Phase 5: Build System | 9 | 9 | 0 | 0 | 0 | 0 |
 | Already Complete | 5 | 0 | 0 | 5 | 0 | 0 |
-| **Total** | **39** | **33** | **0** | **6** | **0** | **0** |
+| **Total** | **39** | **32** | **0** | **7** | **0** | **0** |
 
 ---
 
@@ -1415,4 +1512,6 @@ External Integration:
 *Document generated from automated analysis of OrcaSlicer codebase.*
 *Last updated: December 15, 2025*
 
-*Implementation log: P1-01 LibraryContext completed and verified.*
+*Implementation log:*
+- *P1-01 LibraryContext completed and verified.*
+- *P1-02 AppConfig moved to application layer with adapter pattern.*

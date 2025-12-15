@@ -1,6 +1,6 @@
 #include <catch2/catch_all.hpp>
 
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 
 using namespace Slic3r;
 

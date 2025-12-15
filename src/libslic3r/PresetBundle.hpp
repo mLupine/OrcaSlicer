@@ -2,7 +2,6 @@
 #define slic3r_PresetBundle_hpp_
 
 #include "Preset.hpp"
-#include "AppConfig.hpp"
 #include "enum_bitmask.hpp"
 #include "LibraryContext.hpp"
 
@@ -30,6 +29,8 @@ enum class VendorType {
     Klipper_Qidi
 };
 namespace Slic3r {
+
+class AppConfig;
 
 struct AMSMapInfo
 {
@@ -73,6 +74,62 @@ struct FilamentBaseInfo
     int  filament_printable = 3;
 };
 
+struct PresetSelections {
+    std::string print_preset;
+    std::string printer_preset;
+    std::string physical_printer;
+    std::vector<std::string> filament_presets;
+    std::string sla_print_preset;
+    std::string sla_material_preset;
+};
+
+struct InstalledPresets {
+    PresetVisibilityConfig visibility;
+    std::map<std::string, std::string> filament_section;
+    std::map<std::string, std::string> materials_section;
+};
+
+struct PrinterSettingsConfig {
+    std::string printer_name;
+    std::string print_profile;
+    std::string primary_filament;
+    std::vector<std::string> additional_filaments;
+    std::vector<std::string> filament_colors;
+    std::vector<std::string> filament_multi_colors;
+    std::vector<std::string> filament_color_types;
+    std::vector<std::map<int, int>> extruder_ams_counts;
+    std::vector<double> flush_volumes_matrix;
+    std::vector<double> flush_volumes_vector;
+    std::vector<double> flush_multipliers;
+    std::string current_bed_type;
+};
+
+struct PresetBundlePathConfig {
+    std::string preset_folder;
+};
+
+struct ExportedSelections {
+    std::string printer_name;
+    std::string print_profile;
+    std::vector<std::string> filament_presets;
+    std::string current_bed_type;
+    std::vector<std::string> filament_colors;
+    std::vector<std::string> filament_multi_colors;
+    std::vector<std::string> filament_color_types;
+    std::vector<std::map<int, int>> extruder_ams_counts;
+    std::vector<double> flush_volumes_matrix;
+    std::vector<double> flush_volumes_vector;
+    std::vector<double> flush_multipliers;
+};
+
+struct InstalledFilamentsUpdate {
+    std::set<std::string> filaments_to_install;
+};
+
+struct InstalledMaterialsUpdate {
+    std::set<std::string> materials_to_install;
+};
+
 // Bundle of Print + Filament + Printer presets.
 class PresetBundle
 {
@@ -104,20 +161,21 @@ public:
         std::string sla_material;    // name of a preferred sla_material preset
     };
 
-    // Load ini files of all types (print, filament, printer) from context.data_dir() / presets.
-    // Load selections (current print, current filaments, current printer) from config.ini
-    // select preferred presets, if any exist
-    PresetsConfigSubstitutions load_presets(AppConfig &config, ForwardCompatibilitySubstitutionRule rule,
-                                            const PresetPreferences& preferred_selection = PresetPreferences());
+    friend PresetsConfigSubstitutions load_preset_bundle_presets(
+        PresetBundle& bundle,
+        AppConfig& config,
+        ForwardCompatibilitySubstitutionRule rule,
+        const PresetPreferences& prefs);
+    friend void load_preset_bundle_installed_filaments(PresetBundle& bundle, AppConfig& config);
+    friend void load_preset_bundle_installed_sla_materials(PresetBundle& bundle, AppConfig& config);
 
     // Load selections (current print, current filaments, current printer) from config.ini
     // This is done just once on application start up.
     //BBS: change it to public
-    void     load_selections(AppConfig &config, const PresetPreferences& preferred_selection = PresetPreferences());
+    void     load_selections(const PrinterSettingsConfig &config, const PresetPreferences& preferred_selection = PresetPreferences());
 
     // BBS Load user presets
     PresetsConfigSubstitutions load_user_presets(std::string user, ForwardCompatibilitySubstitutionRule rule);
-    PresetsConfigSubstitutions load_user_presets(AppConfig &config, std::map<std::string, std::map<std::string, std::string>>& my_presets, ForwardCompatibilitySubstitutionRule rule);
     PresetsConfigSubstitutions import_presets(std::vector<std::string> &files, std::function<int(std::string const &)> override_confirm, ForwardCompatibilitySubstitutionRule rule);
     bool                       import_json_presets(PresetsConfigSubstitutions &            substitutions,
                                                    std::string &                           file,
@@ -125,8 +183,8 @@ public:
                                                    ForwardCompatibilitySubstitutionRule    rule,
                                                    int &                                   overwrite,
                                                    std::vector<std::string> &              result);
-    void save_user_presets(AppConfig& config, std::vector<std::string>& need_to_delete_list);
-    void remove_users_preset(AppConfig &config, std::map<std::string, std::map<std::string, std::string>> * my_presets = nullptr);
+    void save_user_presets(const std::string& preset_folder, std::vector<std::string>& need_to_delete_list);
+    void remove_users_preset(const std::string& preset_folder, std::map<std::string, std::map<std::string, std::string>> * my_presets = nullptr);
     void update_user_presets_directory(const std::string preset_folder);
     void remove_user_presets_directory(const std::string preset_folder);
     void update_system_preset_setting_ids(std::map<std::string, std::map<std::string, std::string>>& system_presets);
@@ -169,7 +227,7 @@ public:
     std::string get_hotend_model_for_printer_model(std::string model_name);
 
     // Export selections (current print, current filaments, current printer) into config.ini
-    void            export_selections(AppConfig &config);
+    ExportedSelections export_selections() const;
 
     // BBS
     void            set_num_filaments(unsigned int n, std::vector<std::string> new_colors);
@@ -185,7 +243,7 @@ public:
 
     std::vector<int> get_used_tpu_filaments(const std::vector<int> &used_filaments);
     // Orca: update selected filament and print
-    void           update_selections(AppConfig &config);
+    void           update_selections(const PrinterSettingsConfig &config);
     void set_calibrate_printer(std::string name);
 
     void set_is_validation_mode(bool mode) { validation_mode = mode; }
@@ -331,7 +389,7 @@ public:
     // Set the is_visible flag for printer vendors, printer models and printer variants
     // based on the user configuration.
     // If the "vendor" section is missing, enable all models and variants of the particular vendor.
-    void                        load_installed_printers(const AppConfig &config);
+    void                        load_installed_printers(const PresetVisibilityConfig &config);
 
     const std::string&          get_preset_name_by_alias(const Preset::Type& preset_type, const std::string& alias) const;
 
@@ -377,8 +435,8 @@ private:
 
     // Set the is_visible flag for filaments and sla materials,
     // apply defaults based on enabled printers when no filaments/materials are installed.
-    void                        load_installed_filaments(AppConfig &config);
-    void                        load_installed_sla_materials(AppConfig &config);
+    InstalledFilamentsUpdate    load_installed_filaments(const InstalledPresets &installed);
+    InstalledMaterialsUpdate    load_installed_sla_materials(bool has_materials_section);
 
     // Load print, filament & printer presets from a config. If it is an external config, then the name is extracted from the external path.
     // and the external config is just referenced, not stored into user profile directory.

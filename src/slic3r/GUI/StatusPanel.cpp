@@ -13,7 +13,7 @@
 #include "MsgDialog.hpp"
 #include "slic3r/Utils/Http.hpp"
 #include "libslic3r/Thread.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "DeviceErrorDialog.hpp"
 
 #include "RecenterDialog.hpp"

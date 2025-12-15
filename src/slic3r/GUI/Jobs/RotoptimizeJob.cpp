@@ -10,7 +10,7 @@
 #include "libslic3r/PresetBundle.hpp"
 
 #include "slic3r/GUI/GUI_App.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 
 namespace Slic3r { namespace GUI {
 

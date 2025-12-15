@@ -66,7 +66,7 @@
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/LibraryContext.hpp"
 #include "libslic3r/Print.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "libslic3r/Format/STEP.hpp"
 #include "libslic3r/Shape/TextShape.hpp"
 #include "libslic3r/FlushVolPredictor.hpp"
@@ -86,6 +86,7 @@
 
 #include "DeviceCore/DevManager.h"
 
+#include "../Utils/PresetBundleAdapter.hpp"
 #include "../Utils/PresetUpdater.hpp"
 #include "../Utils/PrintHost.hpp"
 #include "../Utils/Process.hpp"
@@ -2954,7 +2955,7 @@ bool GUI_App::on_init_inner()
             // Enable all substitutions (in both user and system profiles), but log the substitutions in user profiles only.
             // If there are substitutions in system profiles, then a "reconfigure" event shall be triggered, which will force
             // installation of a compatible system preset, thus nullifying the system preset substitutions.
-            init_params->preset_substitutions = preset_bundle->load_presets(*app_config, ForwardCompatibilitySubstitutionRule::EnableSystemSilent);
+            init_params->preset_substitutions = load_preset_bundle_presets(*preset_bundle, *app_config, ForwardCompatibilitySubstitutionRule::EnableSystemSilent);
         }
         catch (const std::exception& ex) {
             show_error(nullptr, ex.what());
@@ -5514,8 +5515,8 @@ void GUI_App::reload_settings()
         std::map<std::string, std::map<std::string, std::string>> user_presets;
         m_agent->get_user_presets(&user_presets);
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << " cloud user preset number is: " << user_presets.size();
-        preset_bundle->load_user_presets(*app_config, user_presets, ForwardCompatibilitySubstitutionRule::Enable);
-        preset_bundle->save_user_presets(*app_config, get_delete_cache_presets());
+        load_preset_bundle_user_presets(*preset_bundle, *app_config, user_presets, ForwardCompatibilitySubstitutionRule::Enable);
+        save_preset_bundle_user_presets(*preset_bundle, *app_config, get_delete_cache_presets());
         mainframe->update_side_preset_ui();
     }
 }
@@ -5524,7 +5525,7 @@ void GUI_App::reload_settings()
 void GUI_App::remove_user_presets()
 {
     if (preset_bundle && m_agent) {
-        preset_bundle->remove_users_preset(*app_config);
+        remove_preset_bundle_users_preset(*preset_bundle, *app_config);
 
         // Not remove user preset cache
         //std::string user_id = m_agent->get_user_id();
@@ -6597,7 +6598,7 @@ bool GUI_App::check_and_save_current_preset_changes(const wxString& caption, con
 
             // if we saved changes to the new presets, we should to
             // synchronize config.ini with the current selections.
-            preset_bundle->export_selections(*app_config);
+            export_preset_bundle_selections(*preset_bundle, *app_config);
 
             //MessageDialog(nullptr, _L_PLURAL("Modifications to the preset have been saved",
             //                                 "Modifications to the presets have been saved", dlg.get_names_and_types().size())).ShowModal();
@@ -6658,7 +6659,7 @@ bool GUI_App::check_and_keep_current_preset_changes(const wxString& caption, con
 
                 // if we saved changes to the new presets, we should to
                 // synchronize config.ini with the current selections.
-                preset_bundle->export_selections(*app_config);
+                export_preset_bundle_selections(*preset_bundle, *app_config);
 
                 //wxString text = _L_PLURAL("Modifications to the preset have been saved",
                 //    "Modifications to the presets have been saved", preset_names_and_types.size());

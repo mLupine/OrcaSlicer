@@ -78,7 +78,6 @@
 
 namespace Slic3r {
 
-class AppConfig;
 class PresetBundle;
 
 enum ConfigFileType
@@ -97,6 +96,12 @@ extern int get_values_from_json(std::string file_path, std::vector<std::string>&
 extern ConfigFileType guess_config_file_type(const boost::property_tree::ptree &tree);
 
 extern void extend_default_config_length(DynamicPrintConfig& config, const bool set_nil_to_default, const DynamicPrintConfig& defaults);
+
+struct PresetVisibilityConfig {
+    std::map<std::string, std::map<std::string, std::set<std::string>>> installed_variants;
+    std::set<std::string> installed_filaments;
+    std::set<std::string> installed_materials;
+};
 
 class VendorProfile
 {
@@ -323,8 +328,8 @@ public:
     // This call returns a reference, it may add a new entry into the DynamicPrintConfig.
     PrinterTechnology&  printer_technology_ref() { return this->config.option<ConfigOptionEnum<PrinterTechnology>>("printer_technology", true)->value; }
 
-    // Set is_visible according to application config
-    void                set_visible_from_appconfig(const AppConfig &app_config);
+    // Set is_visible according to visibility config
+    void                set_visible_from_config(const PresetVisibilityConfig &visibility_config);
 
     // Resize the extruder specific fields, initialize them with the content of the 1st extruder.
     void                set_num_extruders(unsigned int n) { this->config.set_num_extruders(n); }

@@ -12,7 +12,7 @@
 #include <libslic3r/Emboss.hpp>
 #include <libslic3r/TextConfiguration.hpp>
 #include <libslic3r/EmbossShape.hpp>
-#include <libslic3r/AppConfig.hpp>
+#include "AppConfig.hpp"
 
 namespace Slic3r::GUI::Emboss {
 /// <summary>

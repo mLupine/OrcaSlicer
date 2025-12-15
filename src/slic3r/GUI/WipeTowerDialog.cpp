@@ -14,6 +14,7 @@
 #include "libslic3r/Config.hpp"
 #include "Widgets/Label.hpp"
 #include "MainFrame.hpp"
+#include "slic3r/Utils/PresetBundleAdapter.hpp"
 
 using namespace Slic3r;
 using namespace Slic3r::GUI;
@@ -241,7 +242,7 @@ void open_flushing_dialog(wxEvtHandler *parent, const wxEvent &event)
         (project_config.option<ConfigOptionFloats>("flush_multiplier"))->values = std::vector<double>(flush_multipliers.begin(), flush_multipliers.end());
         bool flushing_volume_modify = is_flush_config_modified();
         wxGetApp().sidebar().set_flushing_volume_warning(flushing_volume_modify);
-        wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+        export_preset_bundle_selections(*wxGetApp().preset_bundle, *wxGetApp().app_config);
         wxGetApp().plater()->update_project_dirty_from_presets();
         wxPostEvent(parent, event);
     }

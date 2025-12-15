@@ -3,7 +3,7 @@
 #include "I18N.hpp"
 #include "Widgets/Label.hpp"
 #include "libslic3r/Utils.hpp"
-#include "libslic3r/AppConfig.hpp"
+#include "slic3r/Utils/AppConfig.hpp"
 #include "BitmapCache.hpp"
 #include <wx/progdlg.h>
 #include <wx/clipbrd.h>

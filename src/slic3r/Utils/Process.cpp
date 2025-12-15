@@ -1,6 +1,6 @@
 #include "Process.hpp"
 
-#include <libslic3r/AppConfig.hpp>
+#include "AppConfig.hpp"
 
 #include "../GUI/GUI.hpp"
 // for file_wildcards()
