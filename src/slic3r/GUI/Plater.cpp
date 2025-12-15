@@ -10168,15 +10168,13 @@ void Plater::priv::set_project_name(const wxString& project_name)
 {
     BOOST_LOG_TRIVIAL(trace) << __FUNCTION__ << __LINE__ << " project is:" << project_name;
     m_project_name = project_name;
-    //update topbar title
+
 #ifdef __WINDOWS__
-    wxGetApp().mainframe->SetTitle(m_project_name + " - OrcaSlicer");
+    // Update legacy Windows topbar (if present).
     wxGetApp().mainframe->topbar()->SetTitle(m_project_name);
-#else
-    wxGetApp().mainframe->SetTitle(m_project_name);
-    if (!m_project_name.IsEmpty())
-        wxGetApp().mainframe->update_title_colour_after_set_title();
 #endif
+
+    wxGetApp().mainframe->update_title();
 }
 
 void Plater::priv::update_title_dirty_status()
@@ -10184,18 +10182,16 @@ void Plater::priv::update_title_dirty_status()
     if (m_project_name.empty())
         return;
 
+#ifdef __WINDOWS__
     wxString title;
     if (is_project_dirty())
         title = "*" + m_project_name;
     else
         title = m_project_name;
-
-#ifdef __WINDOWS__
     wxGetApp().mainframe->topbar()->SetTitle(title);
-#else
-    wxGetApp().mainframe->SetTitle(title);
-    wxGetApp().mainframe->update_title_colour_after_set_title();    
-#endif    
+#endif
+
+    wxGetApp().mainframe->update_title();
 }
 
 void Plater::priv::set_project_filename(const wxString& filename)

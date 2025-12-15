@@ -7408,8 +7408,34 @@ extern "C" {
     }
 }
 #else /* _MSC_VER */
+
+#ifdef __APPLE__
+#include <wrapper/cef_library_loader.h>
+#include <cef_app.h>
+#include <cstring>
+
+static bool is_cef_subprocess(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        if (strncmp(argv[i], "--type=", 7) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
 int main(int argc, char **argv)
 {
+#ifdef __APPLE__
+    if (is_cef_subprocess(argc, argv)) {
+        CefScopedLibraryLoader library_loader;
+        if (!library_loader.LoadInMain()) {
+            return 1;
+        }
+        CefMainArgs main_args(argc, argv);
+        return CefExecuteProcess(main_args, nullptr, nullptr);
+    }
+#endif
     return CLI().run(argc, argv);
 }
 #endif /* _MSC_VER */

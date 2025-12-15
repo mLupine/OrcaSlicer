@@ -1050,7 +1050,12 @@ bool StackImpl::has_undo_snapshot() const
 #endif
 	// BBS: undo-redo until modify record
 	auto it = std::lower_bound(m_snapshots.begin(), m_snapshots.end(), Snapshot(m_active_snapshot_time));
-	for (auto it2 = m_snapshots.begin(); it2 != it; ++it2) {
+	// Undo is never allowed to target the very first snapshot (see StackImpl::undo),
+	// so we skip it when determining whether an undoable snapshot exists.
+	if (m_snapshots.size() < 2 || it == m_snapshots.end() || it == m_snapshots.begin())
+		return false;
+
+	for (auto it2 = std::next(m_snapshots.begin()); it2 != it; ++it2) {
 		if (snapshot_modifies_project(*it2))
 			return true;
 	}
@@ -1071,7 +1076,11 @@ bool StackImpl::has_redo_snapshot() const
 
 	// BBS: undo-redo until modify record
 	auto it = std::lower_bound(m_snapshots.begin(), m_snapshots.end(), Snapshot(m_active_snapshot_time));
-	for (; it != m_snapshots.end(); ++it) {
+	// Redo requires a snapshot strictly after the active one.
+	if (it == m_snapshots.end())
+		return false;
+
+	for (it = std::next(it); it != m_snapshots.end(); ++it) {
 		if (snapshot_modifies_project(*it))
 			return true;
 	}

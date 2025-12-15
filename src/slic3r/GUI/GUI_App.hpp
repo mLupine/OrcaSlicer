@@ -315,6 +315,8 @@ private:
     wxString         m_info_dialog_content;
     HttpServer       m_http_server;
     bool             m_show_gcode_window{true};
+    wxTimer* m_cef_timer{nullptr};
+
     boost::thread    m_check_network_thread;
 public:
     //try again when subscription fails

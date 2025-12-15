@@ -89,7 +89,7 @@ static void set_auth(Http& http, const std::string& access_token) { http.header(
 
 static bool should_open_in_external_browser()
 {
-    const auto& app = wxGetApp();
+    const auto& app = GUI::wxGetApp();
 
     if (app.preset_bundle->use_bbl_device_tab()) {
         // When using bbl device tab, we always need to open external browser
@@ -325,7 +325,7 @@ bool SimplyPrint::do_temp_upload(const boost::filesystem::path& file_path,
                 wxLaunchDefaultBrowser(url);
             } else {
                 const auto mainframe = GUI::wxGetApp().mainframe;
-                mainframe->request_select_tab(MainFrame::TabPosition::tpMonitor);
+                mainframe->request_select_tab(GUI::MainFrame::TabPosition::tpMonitor);
                 mainframe->load_printer_url(url);
             }
 

@@ -262,6 +262,14 @@ public:
         GetBtnsListCtrl()->Rescale();
     }
 
+    void ShowTabButtons(bool show)
+    {
+        if (m_bookctrl) {
+            m_bookctrl->Show(show);
+            Layout();
+        }
+    }
+
     void OnNavigationKey(wxNavigationKeyEvent& event)
     {
         if (event.IsWindowChange()) {

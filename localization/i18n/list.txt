@@ -105,7 +105,6 @@ src/slic3r/GUI/AMSMaterialsSetting.cpp
 src/slic3r/GUI/ExtrusionCalibration.cpp
 src/slic3r/GUI/AmsMappingPopup.cpp
 src/slic3r/GUI/AMSSetting.cpp
-src/slic3r/GUI/BBLTopbar.cpp
 src/slic3r/GUI/DownloadProgressDialog.cpp
 src/slic3r/GUI/RecenterDialog.cpp
 src/slic3r/GUI/BackgroundSlicingProcess.cpp

@@ -20,7 +20,6 @@
 namespace Slic3r {
 namespace GUI {
 
-NSTextField* mainframe_text_field = nil;
 bool is_in_full_screen_mode = false;
 
 bool mac_dark_mode()
@@ -42,24 +41,69 @@ double mac_max_scaling_factor()
     return scaling;
 }
     
+static void repositionTrafficLights(NSWindow* window, CGFloat containerHeight) {
+    if (!window) return;
+
+    NSButton* close = [window standardWindowButton:NSWindowCloseButton];
+    NSButton* minimize = [window standardWindowButton:NSWindowMiniaturizeButton];
+    NSButton* zoom = [window standardWindowButton:NSWindowZoomButton];
+    if (!close) return;
+
+    NSView* titleBarContainerView = [[close superview] superview];
+    if (!titleBarContainerView) return;
+
+    NSRect titleBarRect = titleBarContainerView.frame;
+    titleBarRect.size.height = containerHeight;
+    titleBarRect.origin.y = window.frame.size.height - containerHeight;
+    [titleBarContainerView setFrame:titleBarRect];
+
+    CGFloat buttonY = (containerHeight - close.frame.size.height) / 2.0 + 3.0;
+    CGFloat buttonX = 13.0;
+    CGFloat buttonSpacing = 8.0 + close.frame.size.width;
+
+    if (close) {
+        NSRect frame = close.frame;
+        frame.origin = NSMakePoint(buttonX, buttonY);
+        [close setFrameOrigin:frame.origin];
+    }
+    if (minimize) {
+        NSRect frame = minimize.frame;
+        frame.origin = NSMakePoint(buttonX + buttonSpacing, buttonY);
+        [minimize setFrameOrigin:frame.origin];
+    }
+    if (zoom) {
+        NSRect frame = zoom.frame;
+        frame.origin = NSMakePoint(buttonX + buttonSpacing * 2, buttonY);
+        [zoom setFrameOrigin:frame.origin];
+    }
+}
+
 void set_miniaturizable(void * window)
 {
-    CGFloat rFloat = 34/255.0;
-    CGFloat gFloat = 34/255.0;
-    CGFloat bFloat = 36/255.0;
-    [(NSView*) window window].titlebarAppearsTransparent = true;
-    [(NSView*) window window].backgroundColor = [NSColor colorWithCalibratedRed:rFloat green:gFloat blue:bFloat alpha:1.0];
-    [(NSView*) window window].styleMask |= NSMiniaturizableWindowMask;
+    NSWindow* nsWindow = [(NSView*) window window];
 
-    NSEnumerator *viewEnum = [[[[[[[(NSView*) window window] contentView] superview] titlebarViewController] view] subviews] objectEnumerator];
-    NSView *viewObject;
+    nsWindow.styleMask |= NSWindowStyleMaskFullSizeContentView | NSMiniaturizableWindowMask;
+    nsWindow.titlebarAppearsTransparent = true;
+    nsWindow.titleVisibility = NSWindowTitleHidden;
+    nsWindow.backgroundColor = [NSColor clearColor];
 
-    while(viewObject = (NSView *)[viewEnum nextObject]) {
-        if([viewObject class] == [NSTextField self]) {
-            //[(NSTextField*)viewObject setTextColor :  NSColor.whiteColor];
-            mainframe_text_field = viewObject;
-        }
-    }
+    CGFloat navbarHeight = 46.0;
+
+    repositionTrafficLights(nsWindow, navbarHeight);
+
+    [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidResizeNotification
+                                                      object:nsWindow
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification* note) {
+        repositionTrafficLights(nsWindow, navbarHeight);
+    }];
+
+    [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidBecomeKeyNotification
+                                                      object:nsWindow
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification* note) {
+        repositionTrafficLights(nsWindow, navbarHeight);
+    }];
 }
 
 void set_tag_when_enter_full_screen(bool isfullscreen)
@@ -69,18 +113,8 @@ void set_tag_when_enter_full_screen(bool isfullscreen)
 
 void set_title_colour_after_set_title(void * window)
 {
-  NSEnumerator *viewEnum = [[[[[[[(NSView*) window window] contentView] superview] titlebarViewController] view] subviews] objectEnumerator];
-  NSView *viewObject;
-  while(viewObject = (NSView *)[viewEnum nextObject]) {
-    if([viewObject class] == [NSTextField self]) {
-      [(NSTextField*)viewObject setTextColor : NSColor.whiteColor];
-      mainframe_text_field = viewObject;
-    }
-  }
-
-  if (mainframe_text_field) {
-    [(NSTextField*)mainframe_text_field setTextColor : NSColor.whiteColor];
-  }
+  NSWindow* nsWindow = [(NSView*) window window];
+  repositionTrafficLights(nsWindow, 46.0);
 }
 
 void WKWebView_evaluateJavaScript(void * web, wxString const & script, void (*callback)(wxString const &))
@@ -162,31 +196,6 @@ void openFolderForFile(wxString const & file)
 
 @end
 
-/* textColor for NSTextField */
-@implementation NSTextField (textColor)
-
-- (void)setTextColor2:(NSColor *)textColor
-{
-    if (Slic3r::GUI::mainframe_text_field != self){
-        [self setTextColor2: textColor];
-    }else{
-        if(Slic3r::GUI::is_in_full_screen_mode){
-            [self setTextColor2 : NSColor.darkGrayColor];
-        }else{
-            [self setTextColor2 : NSColor.whiteColor];
-        }
-    }
-}
-
-
-+ (void) load
-{
-    Method setTextColor = class_getInstanceMethod([NSTextField class], @selector(setTextColor:));
-    Method setTextColor2 = class_getInstanceMethod([NSTextField class], @selector(setTextColor2:));
-    method_exchangeImplementations(setTextColor, setTextColor2);
-}
-
-@end
 
 /* drawsBackground for NSTextField */
 @implementation NSTextField (drawsBackground)

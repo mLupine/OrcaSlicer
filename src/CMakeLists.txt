@@ -145,6 +145,10 @@ endif ()
 if (SLIC3R_GUI)
 #    target_link_libraries(OrcaSlicer ws2_32 uxtheme setupapi libslic3r_gui ${wxWidgets_LIBRARIES})
 target_link_libraries(OrcaSlicer libslic3r_gui)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/slic3r/../../cmake/modules")
+    find_package(CEF REQUIRED)
+    target_compile_definitions(OrcaSlicer PRIVATE SLIC3R_CEF_ENABLED)
+    target_link_libraries(OrcaSlicer CEF::CEF)
     if (MSVC)
         # Generate debug symbols even in release mode.
         target_link_options(OrcaSlicer PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
@@ -254,6 +258,91 @@ else ()
         COMMAND ln -sfn "${SLIC3R_RESOURCES_DIR}" "${BIN_RESOURCES_DIR}"
         COMMENT "Symlinking the resources directory into the build tree"
         VERBATIM)
+
+    if (CMAKE_MACOSX_BUNDLE AND CEF_FRAMEWORK_DIR)
+        add_custom_command(TARGET OrcaSlicer POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CEF_FRAMEWORK_DIR}/Chromium Embedded Framework.framework"
+                "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/Chromium Embedded Framework.framework"
+            COMMENT "Copying CEF framework to app bundle"
+        )
+
+        add_dependencies(OrcaSlicer orcaslicer_helper)
+
+        set(HELPER_INFO_PLIST_IN "${CMAKE_CURRENT_SOURCE_DIR}/slic3r/GUI/CEF/CEFHelper-Info.plist.in")
+
+        set(HELPER_EXECUTABLE_NAME "OrcaSlicer Helper")
+        set(HELPER_SUFFIX "")
+        configure_file(${HELPER_INFO_PLIST_IN} "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper-Info.plist" @ONLY)
+
+        set(HELPER_EXECUTABLE_NAME "OrcaSlicer Helper (GPU)")
+        set(HELPER_SUFFIX " (GPU)")
+        configure_file(${HELPER_INFO_PLIST_IN} "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper_GPU-Info.plist" @ONLY)
+
+        set(HELPER_EXECUTABLE_NAME "OrcaSlicer Helper (Renderer)")
+        set(HELPER_SUFFIX " (Renderer)")
+        configure_file(${HELPER_INFO_PLIST_IN} "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper_Renderer-Info.plist" @ONLY)
+
+        set(HELPER_EXECUTABLE_NAME "OrcaSlicer Helper (Alerts)")
+        set(HELPER_SUFFIX " (Alerts)")
+        configure_file(${HELPER_INFO_PLIST_IN} "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper_Alerts-Info.plist" @ONLY)
+
+        add_custom_command(TARGET OrcaSlicer POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper.app/Contents/MacOS"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:orcaslicer_helper>" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper.app/Contents/MacOS/OrcaSlicer Helper"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper-Info.plist" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper.app/Contents/Info.plist"
+            COMMAND install_name_tool -change "@executable_path/../Frameworks/Chromium Embedded Framework.framework/Chromium Embedded Framework" "@loader_path/../../../Chromium Embedded Framework.framework/Chromium Embedded Framework" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper.app/Contents/MacOS/OrcaSlicer Helper"
+            COMMENT "Creating main CEF helper app bundle"
+            VERBATIM
+        )
+
+        add_custom_command(TARGET OrcaSlicer POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (GPU).app/Contents/MacOS"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:orcaslicer_helper>" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (GPU).app/Contents/MacOS/OrcaSlicer Helper (GPU)"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper_GPU-Info.plist" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (GPU).app/Contents/Info.plist"
+            COMMAND install_name_tool -change "@executable_path/../Frameworks/Chromium Embedded Framework.framework/Chromium Embedded Framework" "@loader_path/../../../Chromium Embedded Framework.framework/Chromium Embedded Framework" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (GPU).app/Contents/MacOS/OrcaSlicer Helper (GPU)"
+            COMMENT "Creating GPU CEF helper app bundle"
+            VERBATIM
+        )
+
+        add_custom_command(TARGET OrcaSlicer POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Renderer).app/Contents/MacOS"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:orcaslicer_helper>" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Renderer).app/Contents/MacOS/OrcaSlicer Helper (Renderer)"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper_Renderer-Info.plist" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Renderer).app/Contents/Info.plist"
+            COMMAND install_name_tool -change "@executable_path/../Frameworks/Chromium Embedded Framework.framework/Chromium Embedded Framework" "@loader_path/../../../Chromium Embedded Framework.framework/Chromium Embedded Framework" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Renderer).app/Contents/MacOS/OrcaSlicer Helper (Renderer)"
+            COMMENT "Creating Renderer CEF helper app bundle"
+            VERBATIM
+        )
+
+        add_custom_command(TARGET OrcaSlicer POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Alerts).app/Contents/MacOS"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:orcaslicer_helper>" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Alerts).app/Contents/MacOS/OrcaSlicer Helper (Alerts)"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer_Helper_Alerts-Info.plist" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Alerts).app/Contents/Info.plist"
+            COMMAND install_name_tool -change "@executable_path/../Frameworks/Chromium Embedded Framework.framework/Chromium Embedded Framework" "@loader_path/../../../Chromium Embedded Framework.framework/Chromium Embedded Framework" "$<TARGET_BUNDLE_CONTENT_DIR:OrcaSlicer>/Frameworks/OrcaSlicer Helper (Alerts).app/Contents/MacOS/OrcaSlicer Helper (Alerts)"
+            COMMENT "Creating Alerts CEF helper app bundle"
+            VERBATIM
+        )
+    endif()
+
+    find_program(BUN_EXECUTABLE bun)
+    if (BUN_EXECUTABLE)
+        add_custom_command(TARGET OrcaSlicer POST_BUILD
+            COMMAND ${BUN_EXECUTABLE} install
+            COMMAND ${BUN_EXECUTABLE} run build
+            WORKING_DIRECTORY "${SLIC3R_RESOURCES_DIR}/web/navbar"
+            COMMENT "Building CEF navbar Vue app"
+        )
+    else()
+        find_program(NPM_EXECUTABLE npm)
+        if (NPM_EXECUTABLE)
+            add_custom_command(TARGET OrcaSlicer POST_BUILD
+                COMMAND ${NPM_EXECUTABLE} install
+                COMMAND ${NPM_EXECUTABLE} run build
+                WORKING_DIRECTORY "${SLIC3R_RESOURCES_DIR}/web/navbar"
+                COMMENT "Building CEF navbar Vue app"
+            )
+        endif()
+    endif()
 endif ()
 
 # Slic3r binary install target. Default build type is release in case no CMAKE_BUILD_TYPE is provided.

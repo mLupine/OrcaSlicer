@@ -63,6 +63,10 @@
 #include "Widgets/WebView.hpp"
 #include "DailyTips.hpp"
 #include "FilamentMapDialog.hpp"
+#include "CEF/CEFUtils.hpp"
+#include "CEF/CEFMessageHandler.hpp"
+#include <nlohmann/json.hpp>
+
 
 #include "DeviceCore/DevManager.h"
 
@@ -86,6 +90,8 @@ wxDEFINE_EVENT(EVT_CHECK_PRIVACY_SHOW, wxCommandEvent);
 wxDEFINE_EVENT(EVT_SHOW_IP_DIALOG, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UPDATE_MACHINE_LIST, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UPDATE_PRESET_CB, SimpleEvent);
+wxDEFINE_EVENT(EVT_CEF_TAB_SELECTED, wxCommandEvent);
+
 
 
 
@@ -215,15 +221,9 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     // Fonts were created by the DPIFrame constructor for the monitor, on which the window opened.
     wxGetApp().update_fonts(this);
 
-#ifndef __APPLE__
-    m_topbar         = new BBLTopbar(this);
-#else
-    auto panel_topbar = new wxPanel(this, wxID_ANY);
-    panel_topbar->SetBackgroundColour(wxColour(38, 46, 48));
-    auto sizer_tobar = new wxBoxSizer(wxVERTICAL);
-    panel_topbar->SetSizer(sizer_tobar);
-    panel_topbar->Layout();
-#endif
+    m_cef_navbar = new CEFNavigationBar(this);
+    m_cef_navbar->LoadURL("web/navbar/dist/index.html");
+    RegisterCEFCommands();
 
     //wxAuiToolBar* toolbar = new wxAuiToolBar();
 /*
@@ -343,13 +343,6 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     //Bind(wxEVT_MENU, [this](wxCommandEvent&) { m_plater->cut_selection_to_clipboard(); }, wxID_HIGHEST + wxID_CUT);
     Bind(wxEVT_SIZE, [this](wxSizeEvent&) {
             BOOST_LOG_TRIVIAL(trace) << "mainframe: size changed, is maximized = " << this->IsMaximized();
-#ifndef __APPLE__
-            if (this->IsMaximized()) {
-                m_topbar->SetWindowSize();
-            } else {
-                m_topbar->SetMaximizedSize();
-            }
-#endif
         Refresh();
         Layout();
         wxQueueEvent(wxGetApp().plater(), new SimpleEvent(EVT_NOTICE_CHILDE_SIZE_CHANGED));
@@ -357,11 +350,54 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
 
     //BBS
     Bind(EVT_SELECT_TAB, [this](wxCommandEvent&evt) {
-        TabPosition pos = (TabPosition)evt.GetInt();
-        m_tabpanel->SetSelection(pos);
+        if (!m_tabpanel)
+            return;
+
+        const TabPosition pos = static_cast<TabPosition>(evt.GetInt());
+
+        auto find_plater_occurrence_index = [this](int occurrence) -> int {
+            if (!m_plater || occurrence < 0)
+                return wxNOT_FOUND;
+
+            int found_count = 0;
+            const size_t page_count = m_tabpanel->GetPageCount();
+            for (size_t i = 0; i < page_count; ++i) {
+                if (m_tabpanel->GetPage(i) == m_plater) {
+                    if (found_count == occurrence)
+                        return static_cast<int>(i);
+                    ++found_count;
+                }
+            }
+            return wxNOT_FOUND;
+        };
+
+        int page_idx = wxNOT_FOUND;
+        switch (pos) {
+        case TabPosition::tpHome: page_idx = m_tabpanel->FindPage(m_webview); break;
+        case TabPosition::tp3DEditor: page_idx = find_plater_occurrence_index(0); break;
+        case TabPosition::tpPreview: page_idx = find_plater_occurrence_index(1); break;
+        case TabPosition::tpMonitor:
+            page_idx = m_tabpanel->FindPage(m_monitor);
+            if (page_idx == wxNOT_FOUND)
+                page_idx = m_tabpanel->FindPage(m_printer_view);
+            break;
+        case TabPosition::tpMultiDevice: page_idx = m_tabpanel->FindPage(m_multi_machine); break;
+        case TabPosition::tpProject: page_idx = m_tabpanel->FindPage(m_project); break;
+        case TabPosition::tpCalibration: page_idx = m_tabpanel->FindPage(m_calibration); break;
+        case TabPosition::tpAuxiliary:
+        case TabPosition::toDebugTool:
+        default:
+            page_idx = wxNOT_FOUND;
+            break;
+        }
+
+        if (page_idx != wxNOT_FOUND)
+            m_tabpanel->SetSelection(page_idx);
     });
 
     Bind(EVT_SYNC_CLOUD_PRESET, &MainFrame::on_select_default_preset, this);
+    Bind(EVT_CEF_TAB_SELECTED, &MainFrame::OnCEFTabSelected, this);
+
 
 //    Bind(wxEVT_MENU,
 //        [this](wxCommandEvent&)
@@ -387,11 +423,7 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     // initialize layout
     m_main_sizer = new wxBoxSizer(wxVERTICAL);
     wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-#ifndef __APPLE__
-     sizer->Add(m_topbar, 0, wxEXPAND);
-#else
-     sizer->Add(panel_topbar, 0, wxEXPAND);
-#endif // __WINDOWS__
+    sizer->Add(m_cef_navbar, 0, wxEXPAND);
 
 
     sizer->Add(m_main_sizer, 1, wxEXPAND);
@@ -762,7 +794,7 @@ WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam
 
         // Allow resizing from top of the title bar
         wxPoint mouse_pos = ::wxGetMousePosition();
-        if (m_topbar->GetScreenRect().GetBottom() >= mouse_pos.y) {
+        if (m_cef_navbar && m_cef_navbar->GetScreenRect().GetBottom() >= mouse_pos.y) {
             RECT borderThickness;
             SetRectEmpty(&borderThickness);
             AdjustWindowRectEx(&borderThickness, GetWindowLongPtr(hWnd, GWL_STYLE) & ~WS_CAPTION, FALSE, NULL);
@@ -1017,7 +1049,37 @@ void MainFrame::update_filament_tab_ui()
 
 void MainFrame::update_title()
 {
-    return;
+    const wxString app_name = wxString(SLIC3R_APP_NAME);
+
+    if (!m_plater) {
+        if (GetTitle() != app_name) {
+            SetTitle(app_name);
+            update_title_colour_after_set_title();
+        }
+        UpdateCEFNavbarState();
+        return;
+    }
+
+    const bool project_dirty = m_plater->is_project_dirty();
+    const wxString project_filename = m_plater->get_project_filename(".3mf");
+
+    wxString title;
+    if (project_filename.IsEmpty()) {
+        title = project_dirty ? (app_name + " - (new project)") : app_name;
+    } else {
+        wxFileName file(project_filename);
+        wxString project_name = file.GetName(); // extensionless
+        if (project_dirty)
+            project_name += "*";
+        title = project_name + " - " + app_name;
+    }
+
+    if (GetTitle() != title) {
+        SetTitle(title);
+        update_title_colour_after_set_title();
+    }
+
+    UpdateCEFNavbarState();
 }
 
 void MainFrame::show_publish_button(bool show)
@@ -1062,6 +1124,7 @@ void MainFrame::init_tabpanel() {
     m_tabpanel = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, side_tools,
                               wxNB_TOP | wxTAB_TRAVERSAL | wxNB_NOPAGETHEME);
     m_tabpanel->SetBackgroundColour(*wxWHITE);
+    m_tabpanel->ShowTabButtons(false);
 
 #ifndef __WXOSX__ // Don't call SetFont under OSX to avoid name cutting in ObjectList
     m_tabpanel->SetFont(Slic3r::GUI::wxGetApp().normal_font());
@@ -1097,14 +1160,7 @@ void MainFrame::init_tabpanel() {
         else if (panel == m_monitor) {
             //monitor
         }
-#ifndef __APPLE__
-        if (sel == tp3DEditor) {
-            m_topbar->EnableUndoRedoItems();
-        }
-        else {
-            m_topbar->DisableUndoRedoItems();
-        }
-#endif
+        UpdateCEFNavbarState();
 
         if (panel)
             panel->SetFocus();
@@ -1233,6 +1289,7 @@ void MainFrame::show_device(bool bBBLPrinter) {
 #ifdef _MSW_DARK_MODE
         wxGetApp().UpdateDarkUIWin(this);
 #endif // _MSW_DARK_MODE
+        UpdateCEFNavbarState();
 
     } else {
         if (m_tabpanel->FindPage(m_printer_view) != wxNOT_FOUND)
@@ -1262,6 +1319,7 @@ void MainFrame::show_device(bool bBBLPrinter) {
         m_printer_view->Show(false);
         m_tabpanel->InsertPage(tpMonitor, m_printer_view, _L("Device"), std::string("tab_monitor_active"),
                                std::string("tab_monitor_active"));
+        UpdateCEFNavbarState();
     }
 }
 
@@ -2192,10 +2250,6 @@ void MainFrame::on_dpi_changed(const wxRect& suggested_rect)
         dynamic_cast<Notebook*>(m_tabpanel)->Rescale();
 #endif
 
-#ifndef __APPLE__
-    // BBS
-    m_topbar->Rescale();
-#endif
 
     m_tabpanel->Rescale();
 
@@ -2863,22 +2917,10 @@ void MainFrame::init_menubar_as_editor()
         //    }, this);
     }
 
-    wxWindowID config_id_base = wxWindow::NewControlId(int(ConfigMenuCnt));
-    //TODO remove
-    //auto config_wizard_name = _(ConfigWizard::name(true) + "(Debug)");
-    //const auto config_wizard_tooltip = from_u8((boost::format(_utf8(L("Run %s"))) % config_wizard_name).str());
-    //auto config_item = new wxMenuItem(m_topbar->GetTopMenu(), ConfigMenuWizard + config_id_base, config_wizard_name, config_wizard_tooltip);
 #ifdef __APPLE__
     wxWindowID bambu_studio_id_base = wxWindow::NewControlId(int(2));
     wxMenu* parent_menu = m_menubar->OSXGetAppleMenu();
-    //auto preference_item = new wxMenuItem(parent_menu, OrcaSlicerMenuPreferences + bambu_studio_id_base, _L("Preferences") + "\t" + ctrl + ",", "");
-#else
-    wxMenu* parent_menu = m_topbar->GetTopMenu();
-    auto preference_item = new wxMenuItem(parent_menu, ConfigMenuPreferences + config_id_base, _L("Preferences") + "\t" + ctrl + "P", "");
-
 #endif
-    //auto printer_item = new wxMenuItem(parent_menu, ConfigMenuPrinter + config_id_base, _L("Printer"), "");
-    //auto language_item = new wxMenuItem(parent_menu, ConfigMenuLanguage + config_id_base, _L("Switch Language"), "");
 //    parent_menu->Bind(wxEVT_MENU, [this, config_id_base](wxEvent& event) {
 //        switch (event.GetId() - config_id_base) {
 //        //case ConfigMenuLanguage:
@@ -2992,137 +3034,7 @@ void MainFrame::init_menubar_as_editor()
     // Help menu
     auto helpMenu = generate_help_menu();
 
-#ifndef __APPLE__
-    m_topbar->SetFileMenu(fileMenu);
-    if (editMenu)
-        m_topbar->AddDropDownSubMenu(editMenu, _L("Edit"));
-    if (viewMenu)
-        m_topbar->AddDropDownSubMenu(viewMenu, _L("View"));
-    //BBS add Preference
-
-    append_menu_item(
-        m_topbar->GetTopMenu(), wxID_ANY, _L("Preferences") + "\t" + ctrl + "P", "",
-        [this](wxCommandEvent &) {
-            // Orca: Use GUI_App::open_preferences instead of direct call so windows associations are updated on exit
-            wxGetApp().open_preferences();
-            plater()->get_current_canvas3D()->force_set_focus();
-        },
-        "", nullptr, []() { return true; }, this);
-    //m_topbar->AddDropDownMenuItem(preference_item);
-    //m_topbar->AddDropDownMenuItem(printer_item);
-    //m_topbar->AddDropDownMenuItem(language_item);
-    //m_topbar->AddDropDownMenuItem(config_item);
-    m_topbar->AddDropDownSubMenu(helpMenu, _L("Help"));
-
-    // SoftFever calibrations
-
-    // Temperature
-    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Temperature"), _L("Temperature Calibration"),
-        [this](wxCommandEvent&) {
-            if (!m_temp_calib_dlg)
-                m_temp_calib_dlg = new Temp_Calibration_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            m_temp_calib_dlg->ShowModal();
-        }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-
-    // Max Volumetric Speed
-    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Max flowrate"), _L("Max flowrate"),
-        [this](wxCommandEvent&) {
-            if (!m_vol_test_dlg)
-                m_vol_test_dlg = new MaxVolumetricSpeed_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            m_vol_test_dlg->ShowModal();
-        }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-
-    // Pressure Advance
-    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Pressure advance"), _L("Pressure advance"),
-        [this](wxCommandEvent&) {
-            if (!m_pa_calib_dlg)
-                m_pa_calib_dlg = new PA_Calibration_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            m_pa_calib_dlg->ShowModal();
-        }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-
-    // Flow rate (with submenu)
-    auto flowrate_menu = new wxMenu();
-    append_menu_item(
-        flowrate_menu, wxID_ANY, _L("Pass 1"), _L("Flow rate test - Pass 1"),
-        [this](wxCommandEvent&) { if (m_plater) m_plater->calib_flowrate(false, 1); }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-    append_menu_item(flowrate_menu, wxID_ANY, _L("Pass 2"), _L("Flow rate test - Pass 2"),
-        [this](wxCommandEvent&) { if (m_plater) m_plater->calib_flowrate(false, 2); }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-    flowrate_menu->AppendSeparator();
-    append_menu_item(flowrate_menu, wxID_ANY, _L("YOLO (Recommended)"), _L("Orca YOLO flowrate calibration, 0.01 step"),
-        [this](wxCommandEvent&) { if (m_plater) m_plater->calib_flowrate(true, 1); }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-    append_menu_item(flowrate_menu, wxID_ANY, _L("YOLO (perfectionist version)"), _L("Orca YOLO flowrate calibration, 0.005 step"),
-        [this](wxCommandEvent&) { if (m_plater) m_plater->calib_flowrate(true, 2); }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-    m_topbar->GetCalibMenu()->AppendSubMenu(flowrate_menu, _L("Flow rate"));
-
-    // Retraction test
-    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Retraction test"), _L("Retraction test"),
-        [this](wxCommandEvent&) {
-            if (!m_retraction_calib_dlg)
-                m_retraction_calib_dlg = new Retraction_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            m_retraction_calib_dlg->ShowModal();
-        }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-
-    // Cornering
-    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Cornering"), _L("Cornering calibration"),
-        [this](wxCommandEvent&) {
-            auto dlg = new Cornering_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            dlg->ShowModal();
-            dlg->Destroy();
-        }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-
-    // Input Shaping (with submenu)
-    auto input_shaping_menu = new wxMenu();
-    append_menu_item(
-        input_shaping_menu, wxID_ANY, _L("Input Shaping Frequency"), _L("Input Shaping Frequency"),
-        [this](wxCommandEvent&) {
-            auto dlg = new Input_Shaping_Freq_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            dlg->ShowModal();
-            dlg->Destroy();
-        },
-        "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-    append_menu_item(
-        input_shaping_menu, wxID_ANY, _L("Input Shaping Damping/zeta factor"), _L("Input Shaping Damping/zeta factor"),
-        [this](wxCommandEvent&) {
-            auto dlg = new Input_Shaping_Damp_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            dlg->ShowModal();
-            dlg->Destroy();
-        },
-        "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-    m_topbar->GetCalibMenu()->AppendSubMenu(input_shaping_menu, _L("Input Shaping"));
-
-    // VFA
-    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("VFA"), _L("VFA"),
-        [this](wxCommandEvent&) {
-            if (!m_vfa_test_dlg)
-                m_vfa_test_dlg = new VFA_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-            m_vfa_test_dlg->ShowModal();
-        }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-
-    // help
-    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Tutorial"), _L("Calibration help"),
-        [this](wxCommandEvent&) {
-            std::string url = "https://github.com/OrcaSlicer/OrcaSlicer/wiki/Calibration";
-            if (const std::string country_code = wxGetApp().app_config->get_country_code(); country_code == "CN") {
-                // Use gitee mirror for China users
-                url = "https://gitee.com/n0isyfox/orca-slicer-docs/wikis/%E6%A0%A1%E5%87%86/%E6%89%93%E5%8D%B0%E5%8F%82%E6%95%B0%E6%A0%A1%E5%87%86";
-            }
-            wxLaunchDefaultBrowser(url, wxBROWSER_NEW_WINDOW);
-        }, "", nullptr,
-        [this]() {return m_plater->is_view3D_shown();; }, this);
-
-#else
+#ifdef __APPLE__
     m_menubar->Append(fileMenu, wxString::Format("&%s", _L("File")));
     if (editMenu)
         m_menubar->Append(editMenu, wxString::Format("&%s", _L("Edit")));

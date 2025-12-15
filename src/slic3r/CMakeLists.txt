@@ -44,8 +44,6 @@ set(SLIC3R_GUI_SOURCES
     GUI/BBLStatusBar.hpp
     GUI/BBLStatusBarSend.cpp
     GUI/BBLStatusBarSend.hpp
-    GUI/BBLTopbar.cpp
-    GUI/BBLTopbar.hpp
     GUI/BedShapeDialog.cpp
     GUI/BedShapeDialog.hpp
     GUI/BindDialog.cpp
@@ -665,6 +663,32 @@ if (UNIX AND NOT APPLE)
     )
 endif ()
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
+find_package(CEF REQUIRED)
+
+list(APPEND SLIC3R_GUI_SOURCES
+    GUI/CEF/CEFApp.cpp
+    GUI/CEF/CEFApp.hpp
+    GUI/CEF/CEFBrowserHandler.cpp
+    GUI/CEF/CEFBrowserHandler.hpp
+    GUI/CEF/CEFMessageHandler.cpp
+    GUI/CEF/CEFMessageHandler.hpp
+    GUI/CEF/CEFNavigationBar.cpp
+    GUI/CEF/CEFNavigationBar.hpp
+    GUI/CEF/CEFUtils.cpp
+    GUI/CEF/CEFUtils.hpp
+    GUI/MainFrameCEF.cpp
+)
+if(APPLE)
+    list(APPEND SLIC3R_GUI_SOURCES
+        GUI/CEF/CEFMacApplication.mm
+        GUI/CEF/CEFMacApplication.hpp
+        GUI/CEF/CEFViewHelper.mm
+        GUI/CEF/CEFViewHelper.hpp
+    )
+endif()
+message(STATUS "CEF enabled for modern UI")
+
 set(ORCA_UPDATER_SIG_KEY_B64 "${ORCA_UPDATER_SIG_KEY}")
 string(STRIP "${ORCA_UPDATER_SIG_KEY_B64}" ORCA_UPDATER_SIG_KEY_B64)
 string(REPLACE "\n" "" ORCA_UPDATER_SIG_KEY_B64 "${ORCA_UPDATER_SIG_KEY_B64}")
@@ -703,7 +727,72 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SLIC3R_GUI_SOURCES})
 
 encoding_check(libslic3r_gui)
 
-target_link_libraries(libslic3r_gui libslic3r cereal::cereal imgui imguizmo minilzo GLEW::GLEW OpenGL::GL hidapi ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto noise::noise)
+target_link_libraries(libslic3r_gui libslic3r cereal::cereal imgui imguizmo minilzo GLEW::GLEW OpenGL::GL hidapi ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto noise::noise nlohmann_json)
+
+target_link_libraries(libslic3r_gui CEF::CEF)
+target_compile_definitions(libslic3r_gui PRIVATE SLIC3R_CEF_ENABLED)
+set(SLIC3R_CEF_ENABLED ON PARENT_SCOPE)
+
+if (WIN32)
+    add_custom_command(TARGET libslic3r_gui POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CEF_RESOURCE_DIR}/../Release/libcef.dll"
+            "$<TARGET_FILE_DIR:libslic3r_gui>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CEF_RESOURCE_DIR}/../Release/chrome_elf.dll"
+            "$<TARGET_FILE_DIR:libslic3r_gui>"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CEF_RESOURCE_DIR}"
+            "$<TARGET_FILE_DIR:libslic3r_gui>"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CEF_RESOURCE_DIR}/../Release/locales"
+            "$<TARGET_FILE_DIR:libslic3r_gui>/locales"
+        COMMENT "Copying CEF runtime files for Windows"
+    )
+elseif (APPLE)
+    set(CEF_FRAMEWORK_DIR "${CEF_FRAMEWORK_DIR}" PARENT_SCOPE)
+
+    add_executable(orcaslicer_helper
+        GUI/CEF/CEFHelper.cpp
+    )
+    set_target_properties(orcaslicer_helper PROPERTIES
+        OUTPUT_NAME "OrcaSlicer Helper"
+    )
+    target_include_directories(orcaslicer_helper PRIVATE ${CEF_INCLUDE_DIR})
+    target_link_libraries(orcaslicer_helper CEF::CEF)
+
+    set(HELPER_INFO_PLIST_IN "${CMAKE_CURRENT_SOURCE_DIR}/GUI/CEF/CEFHelper-Info.plist.in")
+
+    foreach(HELPER_VARIANT "" " (GPU)" " (Renderer)" " (Alerts)")
+        string(REPLACE " " "" HELPER_SUFFIX_CLEAN "${HELPER_VARIANT}")
+        string(REPLACE "(" "" HELPER_SUFFIX_CLEAN "${HELPER_SUFFIX_CLEAN}")
+        string(REPLACE ")" "" HELPER_SUFFIX_CLEAN "${HELPER_SUFFIX_CLEAN}")
+
+        set(HELPER_EXECUTABLE_NAME "OrcaSlicer Helper${HELPER_VARIANT}")
+        set(HELPER_SUFFIX "${HELPER_VARIANT}")
+        set(HELPER_BUNDLE_NAME "OrcaSlicer Helper${HELPER_VARIANT}")
+        set(HELPER_APP_DIR "${CMAKE_BINARY_DIR}/${HELPER_BUNDLE_NAME}.app")
+
+        configure_file(${HELPER_INFO_PLIST_IN}
+            "${HELPER_APP_DIR}/Contents/Info.plist"
+            @ONLY
+        )
+    endforeach()
+
+elseif (UNIX)
+    add_custom_command(TARGET libslic3r_gui POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CEF_RESOURCE_DIR}/../Release/libcef.so"
+            "$<TARGET_FILE_DIR:libslic3r_gui>"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CEF_RESOURCE_DIR}"
+            "$<TARGET_FILE_DIR:libslic3r_gui>"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CEF_RESOURCE_DIR}/../Release/locales"
+            "$<TARGET_FILE_DIR:libslic3r_gui>/locales"
+        COMMENT "Copying CEF runtime files for Linux"
+    )
+endif()
 
 if (MSVC)
     target_link_libraries(libslic3r_gui Setupapi.lib)
@@ -725,8 +814,6 @@ elseif (APPLE)
 endif()
 
 if (SLIC3R_STATIC)
-    # FIXME: This was previously exported by wx-config but the wxWidgets
-    # cmake build forgets this and the build fails in debug mode (or on raspberry release)
     target_compile_definitions(libslic3r_gui PUBLIC -DwxDEBUG_LEVEL=0)
 endif()
 
@@ -742,16 +829,11 @@ if (SLIC3R_PCH AND NOT SLIC3R_SYNTAXONLY)
     add_precompiled_header(libslic3r_gui pchheader.hpp FORCEINCLUDE)
 endif ()
 
-# We need to implement some hacks for wxWidgets and touch the underlying GTK
-# layer and sub-libraries. This forces us to use the include locations and
-# link these libraries.
 if (UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     find_package(GTK${SLIC3R_GTK} REQUIRED)
     pkg_check_modules(LIBSECRET REQUIRED libsecret-1)
     if (FLATPAK)
-        # I don't know why this is needed, but for whatever reason slic3r isn't
-        # linking to X11 and webkit2gtk. force it.
         find_package(X11 REQUIRED)
         find_package(PkgConfig REQUIRED)
         pkg_check_modules(webkit2gtk REQUIRED webkit2gtk-4.1)
@@ -761,12 +843,10 @@ if (UNIX AND NOT APPLE)
     target_link_libraries(libslic3r_gui ${GTK${SLIC3R_GTK}_LIBRARIES} fontconfig ${LIBSECRET_LIBRARIES})
 
 
-    # We add GStreamer for bambu:/// support.
     pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
     pkg_check_modules(GST_BASE REQUIRED gstreamer-base-1.0)
     target_link_libraries(libslic3r_gui ${GSTREAMER_LIBRARIES} ${GST_BASE_LIBRARIES})
     target_include_directories(libslic3r_gui SYSTEM PRIVATE ${GSTREAMER_INCLUDE_DIRS} ${GST_BASE_INCLUDE_DIRS})
 endif ()
 
-# Add a definition so that we can tell we are compiling slic3r.
 target_compile_definitions(libslic3r_gui PRIVATE SLIC3R_CURRENTLY_COMPILING_GUI_MODULE)

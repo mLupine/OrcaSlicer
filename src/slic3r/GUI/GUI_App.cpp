@@ -78,6 +78,8 @@
 #include "GeneratedConfig.hpp"
 
 #include "DeviceCore/DevManager.h"
+#include "CEF/CEFUtils.hpp"
+
 
 #include "../Utils/PresetUpdater.hpp"
 #include "../Utils/PrintHost.hpp"
@@ -2240,6 +2242,14 @@ bool GUI_App::OnInit()
 
 int GUI_App::OnExit()
 {
+    if (m_cef_timer) {
+        m_cef_timer->Stop();
+        delete m_cef_timer;
+        m_cef_timer = nullptr;
+    }
+    CEFUtils::Shutdown();
+
+
     stop_sync_user_preset();
 
     if (m_device_manager) {
@@ -2335,6 +2345,33 @@ bool GUI_App::on_init_inner()
 
     // Set initialization of image handlers before any UI actions - See GH issue #7469
     wxInitAllImageHandlers();
+
+    int argc = wxApp::argc;
+    char** argv = new char*[argc];
+    for (int i = 0; i < argc; i++) {
+        wxString arg = wxApp::argv[i];
+        argv[i] = strdup(arg.mb_str());
+    }
+
+    if (!CEFUtils::Initialize(argc, argv)) {
+        for (int i = 0; i < argc; i++) {
+            free(argv[i]);
+        }
+        delete[] argv;
+        wxLogError("Failed to initialize CEF");
+    } else {
+        m_cef_timer = new wxTimer();
+        m_cef_timer->Bind(wxEVT_TIMER, [](wxTimerEvent&) {
+            CEFUtils::DoMessageLoopWork();
+        });
+        m_cef_timer->Start(16);
+    }
+
+    for (int i = 0; i < argc; i++) {
+        free(argv[i]);
+    }
+    delete[] argv;
+
 #ifdef NDEBUG
     wxImage::SetDefaultLoadFlags(0); // ignore waring in release build
 #endif
