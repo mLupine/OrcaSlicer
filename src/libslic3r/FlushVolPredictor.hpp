@@ -6,6 +6,8 @@
 #include<string>
 #include<vector>
 
+namespace Slic3r { class LibraryContext; }
+
 namespace FlushPredict
 {
     struct RGBColor
@@ -41,6 +43,7 @@ class GenericFlushPredictor
 {
     using RGB = FlushPredict::RGBColor;
 public:
+    static void init_paths(const Slic3r::LibraryContext& context);
     explicit GenericFlushPredictor(const int dataset_value);
     bool predict(const RGB& from, const RGB& to, float& flush);
     int get_min_flush_volume();

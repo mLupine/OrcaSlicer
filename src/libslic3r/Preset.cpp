@@ -3916,42 +3916,42 @@ namespace PresetUtils {
 		return out;
 	}
 
-    std::string system_printer_bed_model(const Preset& preset)
+    std::string system_printer_bed_model(const Preset& preset, const LibraryContext& context)
     {
         std::string out;
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
         if (pm != nullptr && !pm->bed_model.empty()) {
-            out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_model;
+            out = context.data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_model;
             if (!boost::filesystem::exists(boost::filesystem::path(out)))
-                out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_model;
+                out = context.resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_model;
         }
         return out;
     }
 
-    std::string system_printer_bed_texture(const Preset& preset)
+    std::string system_printer_bed_texture(const Preset& preset, const LibraryContext& context)
     {
         std::string out;
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
         if (pm != nullptr && !pm->bed_texture.empty()) {
-            out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_texture;
+            out = context.data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_texture;
             if (!boost::filesystem::exists(boost::filesystem::path(out)))
-                out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_texture;
+                out = context.resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_texture;
         }
         return out;
     }
 
-    std::string system_printer_hotend_model(const Preset& preset)
+    std::string system_printer_hotend_model(const Preset& preset, const LibraryContext& context)
     {
         std::string out;
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
         if (pm != nullptr && !pm->hotend_model.empty()) {
-            out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->hotend_model;
+            out = context.data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->hotend_model;
             if (!boost::filesystem::exists(boost::filesystem::path(out)))
-                out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->hotend_model;
+                out = context.resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->hotend_model;
         }
-        
+
         if (out.empty() ||!boost::filesystem::exists(boost::filesystem::path(out)))
-            out = Slic3r::resources_dir() + "/profiles/hotend.stl";
+            out = context.resources_dir() + "/profiles/hotend.stl";
         return out;
     }
 } // namespace PresetUtils

@@ -840,7 +840,7 @@ void GCodeViewer::init(ConfigOptionMode mode, PresetBundle* preset_bundle)
     if (preset_bundle != nullptr) {
         const Preset* curr = &preset_bundle->printers.get_selected_preset();
         if (curr->is_system)
-            filename = PresetUtils::system_printer_hotend_model(*curr);
+            filename = PresetUtils::system_printer_hotend_model(*curr, preset_bundle->context());
         else {
             auto *printer_model = curr->config.opt<ConfigOptionString>("printer_model");
             if (printer_model != nullptr && ! printer_model->value.empty()) {
@@ -1039,8 +1039,8 @@ void GCodeViewer::load(const GCodeProcessorResult& gcode_result, const Print& pr
             if (bundle != nullptr && !m_settings_ids.printer.empty()) {
                 const Preset* preset = bundle->printers.find_preset(m_settings_ids.printer);
                 if (preset != nullptr) {
-                    model = PresetUtils::system_printer_bed_model(*preset);
-                    texture = PresetUtils::system_printer_bed_texture(*preset);
+                    model = PresetUtils::system_printer_bed_model(*preset, bundle->context());
+                    texture = PresetUtils::system_printer_bed_texture(*preset, bundle->context());
                 }
             }
 

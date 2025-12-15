@@ -32,6 +32,13 @@
 
 namespace Slic3r {
 
+static std::string s_resources_dir;
+
+void init_textshape_paths(const LibraryContext& context)
+{
+    s_resources_dir = context.resources_dir();
+}
+
 static std::map<std::string, std::string> g_occt_fonts_maps; //map<font_name, font_path>
 
 static const std::vector<Standard_CString> fonts_suffix{ "Bold",  "Medium", "Heavy", "Italic", "Oblique", "Inclined", "Light", "Thin", 
@@ -60,7 +67,7 @@ std::vector<std::string> init_occt_fonts()
 #ifdef __APPLE__
     //from resource
     stdFontNames.push_back("HarmonyOS Sans SC");
-    g_occt_fonts_maps.insert(std::make_pair("HarmoneyOS Sans SC", Slic3r::resources_dir() + "/fonts/" + "HarmonyOS_Sans_SC_Regular.ttf"));
+    g_occt_fonts_maps.insert(std::make_pair("HarmoneyOS Sans SC", s_resources_dir + "/fonts/" + "HarmonyOS_Sans_SC_Regular.ttf"));
 #endif
     for (auto afn : availFontNames) {
 #ifdef __APPLE__

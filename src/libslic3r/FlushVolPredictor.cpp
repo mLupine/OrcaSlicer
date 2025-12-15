@@ -1,9 +1,17 @@
 #include "FlushVolPredictor.hpp"
 #include "Utils.hpp"
+#include "LibraryContext.hpp"
 #include <fstream>
 #include <sstream>
 #include <cmath>
 #include <optional>
+
+static std::string s_resources_dir;
+
+void GenericFlushPredictor::init_paths(const Slic3r::LibraryContext& context)
+{
+    s_resources_dir = context.resources_dir();
+}
 
 namespace FlushPredict
 {
@@ -315,7 +323,7 @@ GenericFlushPredictor::GenericFlushPredictor(const int dataset_value)
     if (iter != predictor_instances.end())
         predictor = &iter->second;
     else {
-        std::string path = Slic3r::resources_dir();
+        std::string path = s_resources_dir;
         if (dataset_value == 0)
             path += "/flush/flush_data_standard.txt";
         else if (dataset_value == 1)

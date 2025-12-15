@@ -66,6 +66,10 @@ using namespace nlohmann;
 #include "libslic3r/Thread.hpp"
 #include "libslic3r/BlacklistedLibraryCheck.hpp"
 #include "libslic3r/FlushVolCalc.hpp"
+#include "libslic3r/LibraryContext.hpp"
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Shape/TextShape.hpp"
+#include "libslic3r/Format/STEP.hpp"
 
 #include "libslic3r/Orient.hpp"
 #include "libslic3r/PNGReadWrite.hpp"
@@ -1215,6 +1219,18 @@ int CLI::run(int argc, char **argv)
     BOOST_LOG_TRIVIAL(info) << "finished setup params, argc="<< argc << std::endl;
     std::string temp_path = wxFileName::GetTempDir().utf8_str().data();
     set_temporary_dir(temp_path);
+
+    LibraryContext library_context(
+        Slic3r::data_dir(),
+        Slic3r::resources_dir(),
+        Slic3r::temporary_dir()
+    );
+    Print::init_resource_paths(library_context);
+    Model::init_paths(library_context);
+    AppConfig::init_paths(library_context);
+    StepPreProcessor::init_paths(library_context);
+    init_textshape_paths(library_context);
+    GenericFlushPredictor::init_paths(library_context);
 
     m_extra_config.apply(m_config, true);
     m_extra_config.normalize_fdm();

@@ -68,7 +68,7 @@ using Config::SnapshotDB;
 //BBS: set BBL as default
 bool Bundle::load(fs::path source_path, bool ais_in_resources, bool ais_bbl_bundle)
 {
-    this->preset_bundle = std::make_unique<PresetBundle>();
+    this->preset_bundle = std::make_unique<PresetBundle>(wxGetApp().preset_bundle->context());
     this->is_in_resources = ais_in_resources;
     this->is_bbl_bundle = ais_bbl_bundle;
 

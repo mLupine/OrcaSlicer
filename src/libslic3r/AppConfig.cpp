@@ -46,6 +46,10 @@ const std::string AppConfig::SECTION_FILAMENTS = "filaments";
 const std::string AppConfig::SECTION_MATERIALS = "sla_materials";
 const std::string AppConfig::SECTION_EMBOSS_STYLE = "font";
 
+void AppConfig::init_paths(const LibraryContext& context)
+{
+}
+
 std::string AppConfig::get_language_code()
 {
     std::string get_lang = get("language");
@@ -1543,12 +1547,12 @@ std::string AppConfig::config_path()
 {
 #ifdef USE_JSON_CONFIG
     std::string path = (m_mode == EAppMode::Editor) ?
-        (boost::filesystem::path(Slic3r::data_dir()) / (SLIC3R_APP_KEY ".conf")).make_preferred().string() :
-        (boost::filesystem::path(Slic3r::data_dir()) / (GCODEVIEWER_APP_KEY ".conf")).make_preferred().string();
+        (boost::filesystem::path(m_context.data_dir()) / (SLIC3R_APP_KEY ".conf")).make_preferred().string() :
+        (boost::filesystem::path(m_context.data_dir()) / (GCODEVIEWER_APP_KEY ".conf")).make_preferred().string();
 #else
     std::string path = (m_mode == EAppMode::Editor) ?
-        (boost::filesystem::path(Slic3r::data_dir()) / (SLIC3R_APP_KEY ".ini")).make_preferred().string() :
-        (boost::filesystem::path(Slic3r::data_dir()) / (GCODEVIEWER_APP_KEY ".ini")).make_preferred().string();
+        (boost::filesystem::path(m_context.data_dir()) / (SLIC3R_APP_KEY ".ini")).make_preferred().string() :
+        (boost::filesystem::path(m_context.data_dir()) / (GCODEVIEWER_APP_KEY ".ini")).make_preferred().string();
 #endif
 
     return path;

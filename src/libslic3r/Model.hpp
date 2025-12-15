@@ -19,6 +19,7 @@
 #include "TextConfiguration.hpp"
 #include "EmbossShape.hpp"
 #include "TriangleSelector.hpp"
+#include "LibraryContext.hpp"
 
 //BBS: add bbs 3mf
 #include "Format/bbs_3mf.hpp"
@@ -1601,6 +1602,7 @@ public:
     //BBS static functions that update extruder params and speed table
     static void setPrintSpeedTable(const DynamicPrintConfig& config, const PrintConfig& print_config);
     static void setExtruderParams(const DynamicPrintConfig& config, int extruders_count);
+    static void init_paths(const LibraryContext& context);
 
     // BBS: backup
     static Model read_from_archive(

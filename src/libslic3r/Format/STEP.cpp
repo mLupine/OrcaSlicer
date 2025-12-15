@@ -40,6 +40,13 @@
 
 namespace Slic3r {
 
+static std::string s_temporary_dir;
+
+void StepPreProcessor::init_paths(const LibraryContext& context)
+{
+    s_temporary_dir = context.temporary_dir();
+}
+
 bool StepPreProcessor::preprocess(const char* path, std::string &output_path)
 {
     boost::nowide::ifstream infile(path);
@@ -48,7 +55,7 @@ bool StepPreProcessor::preprocess(const char* path, std::string &output_path)
         return false;
     }
 
-    boost::filesystem::path temp_path(temporary_dir());
+    boost::filesystem::path temp_path(s_temporary_dir);
     std::string temp_step_path = temp_path.string() + "/temp.step";
     boost::nowide::remove(temp_step_path.c_str());
     boost::nowide::ofstream temp_file(temp_step_path, std::ios::app);

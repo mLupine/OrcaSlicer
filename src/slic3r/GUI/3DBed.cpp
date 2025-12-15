@@ -443,7 +443,7 @@ std::tuple<Bed3D::Type, std::string, std::string> Bed3D::detect_type(const Point
                 std::string texture_filename, model_filename;
                 if (shape == make_counter_clockwise(dynamic_cast<const ConfigOptionPoints*>(curr->config.option("printable_area"))->values)) {
                     if (curr->is_system)
-                        model_filename = PresetUtils::system_printer_bed_model(*curr);
+                        model_filename = PresetUtils::system_printer_bed_model(*curr, bundle->context());
                     else {
                         auto *printer_model = curr->config.opt<ConfigOptionString>("printer_model");
                         if (printer_model != nullptr && ! printer_model->value.empty()) {

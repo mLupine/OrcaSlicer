@@ -4,6 +4,7 @@
 #include "Preset.hpp"
 #include "AppConfig.hpp"
 #include "enum_bitmask.hpp"
+#include "LibraryContext.hpp"
 
 #include <memory>
 #include <unordered_map>
@@ -83,8 +84,11 @@ public:
                                                     bool                            apply_extruder,
                                                     std::optional<std::vector<int>> filament_maps_new);
     PresetBundle();
+    explicit PresetBundle(LibraryContext context);
     PresetBundle(const PresetBundle &rhs);
     PresetBundle& operator=(const PresetBundle &rhs);
+
+    const LibraryContext& context() const { return m_context; }
 
     // Remove all the presets but the "-- default --".
     // Optionally remove all the files referenced by the presets from the user profile directory.
@@ -100,7 +104,7 @@ public:
         std::string sla_material;    // name of a preferred sla_material preset
     };
 
-    // Load ini files of all types (print, filament, printer) from Slic3r::data_dir() / presets.
+    // Load ini files of all types (print, filament, printer) from context.data_dir() / presets.
     // Load selections (current print, current filaments, current printer) from config.ini
     // select preferred presets, if any exist
     PresetsConfigSubstitutions load_presets(AppConfig &config, ForwardCompatibilitySubstitutionRule rule,
@@ -359,6 +363,8 @@ public:
     bool has_errors() const;
 
 private:
+    LibraryContext m_context;
+
     //std::pair<PresetsConfigSubstitutions, std::string> load_system_presets(ForwardCompatibilitySubstitutionRule compatibility_rule);
     //BBS: add json related logic
     std::pair<PresetsConfigSubstitutions, std::string> load_system_presets_from_json(ForwardCompatibilitySubstitutionRule compatibility_rule);

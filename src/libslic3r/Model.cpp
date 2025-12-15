@@ -54,6 +54,14 @@ const std::vector<std::string> CONST_FILAMENTS = {
     // BBS initialization of static variables
     std::map<size_t, ExtruderParams> Model::extruderParamsMap = { {0,{"",0,0}}};
     GlobalSpeedMap Model::printSpeedMap{};
+
+static std::string s_temporary_dir;
+
+void Model::init_paths(const LibraryContext& context)
+{
+    s_temporary_dir = context.temporary_dir();
+}
+
 Model& Model::assign_copy(const Model &rhs)
 {
     this->copy_id(rhs);
@@ -953,7 +961,7 @@ std::string Model::get_backup_path()
     if (backup_path.empty())
     {
         auto pid = get_current_pid();
-        boost::filesystem::path parent_path(temporary_dir());
+        boost::filesystem::path parent_path(s_temporary_dir);
         std::time_t t = std::time(0);
         std::tm* now_time = std::localtime(&t);
         std::stringstream buf;

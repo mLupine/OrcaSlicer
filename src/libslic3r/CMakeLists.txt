@@ -279,6 +279,8 @@ set(lisbslic3r_sources
     libslic3r.h
     Line.cpp
     Line.hpp
+    LibraryContext.cpp
+    LibraryContext.hpp
     LocalesUtils.cpp
     LocalesUtils.hpp
     MarchingSquares.hpp

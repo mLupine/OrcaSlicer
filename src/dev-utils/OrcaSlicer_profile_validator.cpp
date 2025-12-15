@@ -2,6 +2,7 @@
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/LibraryContext.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Utils.hpp"
 #include <boost/filesystem/operations.hpp>
@@ -137,7 +138,14 @@ int main(int argc, char* argv[])
         fs::create_directory(user_dir);
 
     set_logging_level(log_level);
-    auto preset_bundle = new PresetBundle();
+
+    LibraryContext library_context(
+        Slic3r::data_dir(),
+        Slic3r::resources_dir(),
+        Slic3r::temporary_dir()
+    );
+
+    auto preset_bundle = new PresetBundle(library_context);
     // preset_bundle->setup_directories();
     preset_bundle->set_is_validation_mode(true);
     preset_bundle->set_vendor_to_validate(vendor);

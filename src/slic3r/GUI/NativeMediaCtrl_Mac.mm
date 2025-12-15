@@ -10,9 +10,6 @@
 #import <AVFoundation/AVFoundation.h>
 #import <AVKit/AVKit.h>
 
-namespace Slic3r { namespace GUI {
-class NativeMediaCtrl::Impl;
-}}
 
 @interface NativeMediaCtrlObserver : NSObject
 {
@@ -171,7 +168,7 @@ void NativeMediaCtrl::Impl::SetupPlayer(NSURL* url)
                   options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionInitial
                   context:nil];
 
-    __weak typeof(self) weakSelf = this;
+    NativeMediaCtrl::Impl* implPtr = this;
 
     m_error_observer = [[NSNotificationCenter defaultCenter]
         addObserverForName:AVPlayerItemFailedToPlayToEndTimeNotification
@@ -179,8 +176,8 @@ void NativeMediaCtrl::Impl::SetupPlayer(NSURL* url)
                      queue:[NSOperationQueue mainQueue]
                 usingBlock:^(NSNotification* note) {
                     NSError* error = note.userInfo[AVPlayerItemFailedToPlayToEndTimeErrorKey];
-                    if (weakSelf) {
-                        weakSelf->OnPlayerError(error);
+                    if (implPtr) {
+                        implPtr->OnPlayerError(error);
                     }
                 }];
 
@@ -190,9 +187,9 @@ void NativeMediaCtrl::Impl::SetupPlayer(NSURL* url)
                      queue:[NSOperationQueue mainQueue]
                 usingBlock:^(NSNotification* note) {
                     BOOST_LOG_TRIVIAL(info) << "NativeMediaCtrl_Mac: Playback ended";
-                    if (weakSelf) {
-                        weakSelf->m_state = NativeMediaState::Stopped;
-                        weakSelf->NotifyStateChanged();
+                    if (implPtr) {
+                        implPtr->m_state = NativeMediaState::Stopped;
+                        implPtr->NotifyStateChanged();
                     }
                 }];
 }

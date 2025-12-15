@@ -9,6 +9,8 @@
 
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Semver.hpp"
+#include "libslic3r/LibraryContext.hpp"
+#include "libslic3r/Utils.hpp"
 #include "calib.hpp"
 
 using namespace nlohmann;
@@ -100,7 +102,8 @@ public:
 	};
 
     //BBS: remove GCodeViewer as seperate APP logic
-	explicit AppConfig() :
+	AppConfig() :
+		m_context(Slic3r::data_dir(), Slic3r::resources_dir(), Slic3r::temporary_dir()),
 		m_dirty(false),
 		m_orig_version(Semver::invalid()),
 		m_mode(EAppMode::Editor),
@@ -108,6 +111,18 @@ public:
 	{
 		this->reset();
 	}
+
+	explicit AppConfig(const LibraryContext& context) :
+		m_context(context),
+		m_dirty(false),
+		m_orig_version(Semver::invalid()),
+		m_mode(EAppMode::Editor),
+		m_legacy_datadir(false)
+	{
+		this->reset();
+	}
+
+	static void init_paths(const LibraryContext& context);
 
 	std::string get_language_code();
 	std::string get_hms_host();
@@ -367,7 +382,6 @@ public:
 	// the first non-default preset when called.
     void                reset_selections();
 
-	// Get the default config path from Slic3r::data_dir().
 	std::string			config_path();
 
 	// Returns true if the user's data directory comes from before Slic3r 1.40.0 (no updating)
@@ -455,6 +469,7 @@ private:
 	    return true;
 	}
 
+	LibraryContext												m_context;
 	// Type of application: Editor or GCodeViewer
 	EAppMode													m_mode { EAppMode::Editor };
 	// Map of section, name -> value

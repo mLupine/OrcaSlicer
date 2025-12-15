@@ -2,6 +2,7 @@
 #define slic3r_Text_Shape_hpp_
 
 #include "libslic3r/TriangleMesh.hpp"
+#include "libslic3r/LibraryContext.hpp"
 
 namespace Slic3r {
 class TriangleMesh;
@@ -12,6 +13,7 @@ struct TextResult
     double       text_width;
 };
 
+extern void init_textshape_paths(const LibraryContext& context);
 extern std::vector<std::string> init_occt_fonts();
 extern void load_text_shape(const char *text, const char *font, const float text_height, const float thickness, bool is_bold, bool is_italic, TextResult &text_result);
 

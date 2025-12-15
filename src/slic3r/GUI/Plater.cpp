@@ -16010,7 +16010,7 @@ void Plater::set_bed_shape() const
     if (bundle != nullptr) {
         const Preset* curr = &bundle->printers.get_selected_preset();
         if (curr->is_system)
-            texture_filename = PresetUtils::system_printer_bed_texture(*curr);
+            texture_filename = PresetUtils::system_printer_bed_texture(*curr, bundle->context());
         else {
             auto *printer_model = curr->config.opt<ConfigOptionString>("printer_model");
             if (printer_model != nullptr && ! printer_model->value.empty()) {

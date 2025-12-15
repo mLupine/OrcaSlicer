@@ -64,6 +64,12 @@
 #include "libslic3r/Model.hpp"
 #include "libslic3r/I18N.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/LibraryContext.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Format/STEP.hpp"
+#include "libslic3r/Shape/TextShape.hpp"
+#include "libslic3r/FlushVolPredictor.hpp"
 #include "libslic3r/Thread.hpp"
 #include "libslic3r/miniz_extension.hpp"
 #include "libslic3r/Utils.hpp"
@@ -2764,7 +2770,21 @@ bool GUI_App::on_init_inner()
     }
 
     BOOST_LOG_TRIVIAL(info) << "loading systen presets...";
-    preset_bundle = new PresetBundle();
+
+    LibraryContext library_context(
+        Slic3r::data_dir(),
+        Slic3r::resources_dir(),
+        Slic3r::temporary_dir()
+    );
+
+    Print::init_resource_paths(library_context);
+    Model::init_paths(library_context);
+    AppConfig::init_paths(library_context);
+    StepPreProcessor::init_paths(library_context);
+    init_textshape_paths(library_context);
+    GenericFlushPredictor::init_paths(library_context);
+
+    preset_bundle = new PresetBundle(library_context);
 
     // just checking for existence of Slic3r::data_dir is not enough : it may be an empty directory
     // supplied as argument to --datadir; in that case we should still run the wizard

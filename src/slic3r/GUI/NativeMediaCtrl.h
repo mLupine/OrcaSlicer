@@ -83,8 +83,9 @@ public:
 protected:
     void DoSetSize(int x, int y, int width, int height, int sizeFlags) override;
 
-private:
+public:
     class Impl;
+private:
     std::unique_ptr<Impl> m_impl;
 
     void OnRetryTimer(wxTimerEvent& event);

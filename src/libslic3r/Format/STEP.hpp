@@ -7,6 +7,7 @@
 #include <boost/filesystem.hpp>
 #include <Message_ProgressIndicator.hxx>
 #include <atomic>
+#include "../LibraryContext.hpp"
 
 namespace fs = boost::filesystem;
 
@@ -60,6 +61,7 @@ class StepPreProcessor {
     };
 
 public:
+    static void init_paths(const LibraryContext& context);
     bool preprocess(const char* path, std::string &output_path);
     static bool isUtf8File(const char* path);
     static bool isUtf8(const std::string str);

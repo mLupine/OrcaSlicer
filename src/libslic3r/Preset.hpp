@@ -14,6 +14,7 @@
 #include "PrintConfig.hpp"
 #include "Semver.hpp"
 #include "ProjectTask.hpp"
+#include "LibraryContext.hpp"
 
 //BBS: change system directories
 #define PRESET_SYSTEM_DIR      "system"
@@ -859,9 +860,9 @@ private:
 namespace PresetUtils {
 	// PrinterModel of a system profile, from which this preset is derived, or null if it is not derived from a system profile.
 	const VendorProfile::PrinterModel* system_printer_model(const Preset &preset);
-    std::string system_printer_bed_model(const Preset& preset);
-    std::string system_printer_bed_texture(const Preset& preset);
-    std::string system_printer_hotend_model(const Preset& preset);
+    std::string system_printer_bed_model(const Preset& preset, const LibraryContext& context);
+    std::string system_printer_bed_texture(const Preset& preset, const LibraryContext& context);
+    std::string system_printer_hotend_model(const Preset& preset, const LibraryContext& context);
 } // namespace PresetUtils
 
 

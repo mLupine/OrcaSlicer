@@ -48,6 +48,13 @@ using namespace nlohmann;
 
 namespace Slic3r {
 
+static std::string s_resources_dir;
+
+void Print::init_resource_paths(const LibraryContext& context)
+{
+    s_resources_dir = context.resources_dir();
+}
+
 template class PrintState<PrintStep, psCount>;
 template class PrintState<PrintObjectStep, posCount>;
 
@@ -2731,7 +2738,7 @@ FilamentTempType Print::get_filament_temp_type(const std::string& filament_type)
     static std::unordered_map<std::string, std::unordered_set<std::string>>filament_temp_type_map;
 
     if (filament_temp_type_map.empty()) {
-        fs::path file_path = fs::path(resources_dir()) / "info" / "filament_info.json";
+        fs::path file_path = fs::path(s_resources_dir) / "info" / "filament_info.json";
         std::ifstream in(file_path.string());
         json j;
         try{
@@ -2766,7 +2773,7 @@ int Print::get_hrc_by_nozzle_type(const NozzleType&type)
 {
     static std::map<std::string, int>nozzle_type_to_hrc;
     if (nozzle_type_to_hrc.empty()) {
-        fs::path file_path = fs::path(resources_dir()) / "info" / "nozzle_info.json";
+        fs::path file_path = fs::path(s_resources_dir) / "info" / "nozzle_info.json";
         boost::nowide::ifstream in(file_path.string());
         //std::ifstream in(file_path.string());
         json j;
@@ -2799,7 +2806,7 @@ std::vector<std::string> Print::get_incompatible_filaments_by_nozzle(const float
 {
     static std::map<std::string, std::map<std::string, std::vector<std::string>>> incompatible_filaments;
     if(incompatible_filaments.empty()){
-        fs::path file_path = fs::path(resources_dir()) / "info" / "nozzle_incompatibles.json";
+        fs::path file_path = fs::path(s_resources_dir) / "info" / "nozzle_incompatibles.json";
         boost::nowide::ifstream in(file_path.string());
         json j;
         try {

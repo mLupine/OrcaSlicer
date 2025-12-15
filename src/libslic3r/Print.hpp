@@ -25,6 +25,7 @@
 #include <set>
 
 #include "calib.hpp"
+#include "LibraryContext.hpp"
 
 namespace Slic3r {
 
@@ -1082,6 +1083,11 @@ public:
 
     // scaled point
     Vec2d translate_to_print_space(const Point &point) const;
+
+    void set_library_context(const LibraryContext& context) { m_library_context = context; }
+    const LibraryContext& library_context() const { return m_library_context; }
+
+    static void init_resource_paths(const LibraryContext& context);
     static FilamentTempType get_filament_temp_type(const std::string& filament_type);
     static int get_hrc_by_nozzle_type(const NozzleType& type);
     static std::vector<std::string> get_incompatible_filaments_by_nozzle(const float nozzle_diameter, const std::optional<NozzleVolumeType> nozzle_volume_type = std::nullopt);
@@ -1178,6 +1184,8 @@ private:
     Calib_Params m_calib_params;
 
     bool m_need_check_multi_filaments_compatibility{true};
+
+    LibraryContext m_library_context{std::string(), std::string(), std::string()};
 
     // To allow GCode to set the Print's GCodeExport step status.
     friend class GCode;
