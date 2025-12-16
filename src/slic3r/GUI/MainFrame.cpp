@@ -1069,8 +1069,6 @@ void MainFrame::update_title()
     } else {
         wxFileName file(project_filename);
         wxString project_name = file.GetName(); // extensionless
-        if (project_dirty)
-            project_name += "*";
         title = project_name + " - " + app_name;
     }
 
