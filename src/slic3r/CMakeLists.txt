@@ -684,8 +684,8 @@ list(APPEND SLIC3R_GUI_SOURCES
     GUI/CEF/CEFBrowserHandler.hpp
     GUI/CEF/CEFMessageHandler.cpp
     GUI/CEF/CEFMessageHandler.hpp
-    GUI/CEF/CEFNavigationBar.cpp
-    GUI/CEF/CEFNavigationBar.hpp
+    GUI/CEF/CEFShell.cpp
+    GUI/CEF/CEFShell.hpp
     GUI/CEF/CEFUtils.cpp
     GUI/CEF/CEFUtils.hpp
     GUI/MainFrameCEF.cpp

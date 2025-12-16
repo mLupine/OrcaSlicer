@@ -329,8 +329,8 @@ else ()
         add_custom_command(TARGET OrcaSlicer POST_BUILD
             COMMAND ${BUN_EXECUTABLE} install
             COMMAND ${BUN_EXECUTABLE} run build
-            WORKING_DIRECTORY "${SLIC3R_RESOURCES_DIR}/web/navbar"
-            COMMENT "Building CEF navbar Vue app"
+            WORKING_DIRECTORY "${SLIC3R_RESOURCES_DIR}/web/shell"
+            COMMENT "Building CEF shell Vue app"
         )
     else()
         find_program(NPM_EXECUTABLE npm)
@@ -338,8 +338,8 @@ else ()
             add_custom_command(TARGET OrcaSlicer POST_BUILD
                 COMMAND ${NPM_EXECUTABLE} install
                 COMMAND ${NPM_EXECUTABLE} run build
-                WORKING_DIRECTORY "${SLIC3R_RESOURCES_DIR}/web/navbar"
-                COMMENT "Building CEF navbar Vue app"
+                WORKING_DIRECTORY "${SLIC3R_RESOURCES_DIR}/web/shell"
+                COMMENT "Building CEF shell Vue app"
             )
         endif()
     endif()

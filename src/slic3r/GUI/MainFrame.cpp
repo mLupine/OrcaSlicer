@@ -221,8 +221,8 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     // Fonts were created by the DPIFrame constructor for the monitor, on which the window opened.
     wxGetApp().update_fonts(this);
 
-    m_cef_navbar = new CEFNavigationBar(this);
-    m_cef_navbar->LoadURL("web/navbar/dist/index.html");
+    m_cef_shell = new CEFShell(this);
+    m_cef_shell->LoadURL("web/shell/dist/index.html");
     RegisterCEFCommands();
 
     //wxAuiToolBar* toolbar = new wxAuiToolBar();
@@ -272,6 +272,11 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
 
     // Load the icon either from the exe, or from the ico file.
     SetIcon(main_frame_icon(wxGetApp().get_app_mode()));
+
+    m_content_panel = new wxPanel(this, wxID_ANY);
+    m_content_panel->SetBackgroundColour(wxColour(34, 34, 36));
+    m_main_sizer = new wxBoxSizer(wxVERTICAL);
+    m_content_panel->SetSizer(m_main_sizer);
 
     // initialize tabpanel and menubar
     init_tabpanel();
@@ -420,17 +425,30 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
 
     m_loaded = true;
 
-    // initialize layout
-    m_main_sizer = new wxBoxSizer(wxVERTICAL);
-    wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(m_cef_navbar, 0, wxEXPAND);
+    constexpr int NAVBAR_HEIGHT = 46;
 
+    m_cef_shell->RegisterHole("main-content", m_content_panel);
 
-    sizer->Add(m_main_sizer, 1, wxEXPAND);
-    SetSizerAndFit(sizer);
+    Bind(wxEVT_SIZE, [this](wxSizeEvent& evt) {
+        wxSize size = GetClientSize();
+        m_cef_shell->SetPosition(wxPoint(0, 0));
+        m_cef_shell->SetSize(size);
+        m_content_panel->SetPosition(wxPoint(0, NAVBAR_HEIGHT));
+        m_content_panel->SetSize(wxSize(size.GetWidth(), size.GetHeight() - NAVBAR_HEIGHT));
+        evt.Skip();
+    });
+
+    wxSize size = GetClientSize();
+    m_cef_shell->SetPosition(wxPoint(0, 0));
+    m_cef_shell->SetSize(size);
+    m_content_panel->SetPosition(wxPoint(0, NAVBAR_HEIGHT));
+    m_content_panel->SetSize(wxSize(size.GetWidth(), size.GetHeight() - NAVBAR_HEIGHT));
+
+    m_cef_shell->Lower();
+    m_content_panel->Raise();
+
     // initialize layout from config
     update_layout();
-    sizer->SetSizeHints(this);
 
 #ifdef WIN32
     // SetMaximize causes the window to overlap the taskbar, due to the fact this window has wxMAXIMIZE_BOX off
@@ -794,7 +812,7 @@ WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam
 
         // Allow resizing from top of the title bar
         wxPoint mouse_pos = ::wxGetMousePosition();
-        if (m_cef_navbar && m_cef_navbar->GetScreenRect().GetBottom() >= mouse_pos.y) {
+        if (m_cef_shell && m_cef_shell->GetScreenRect().GetBottom() >= mouse_pos.y) {
             RECT borderThickness;
             SetRectEmpty(&borderThickness);
             AdjustWindowRectEx(&borderThickness, GetWindowLongPtr(hWnd, GWL_STYLE) & ~WS_CAPTION, FALSE, NULL);
@@ -849,11 +867,11 @@ void MainFrame::update_layout()
         if (plater_page_id != wxNOT_FOUND)
             m_tabpanel->RemovePage(plater_page_id);
 
-        if (m_plater->GetParent() != this)
-            m_plater->Reparent(this);
+        if (m_plater->GetParent() != m_content_panel)
+            m_plater->Reparent(m_content_panel);
 
-        if (m_tabpanel->GetParent() != this)
-            m_tabpanel->Reparent(this);
+        if (m_tabpanel->GetParent() != m_content_panel)
+            m_tabpanel->Reparent(m_content_panel);
 
         plater_page_id = (m_plater_page != nullptr) ? m_tabpanel->FindPage(m_plater_page) : wxNOT_FOUND;
         if (plater_page_id != wxNOT_FOUND) {
@@ -1119,7 +1137,7 @@ void MainFrame::init_tabpanel() {
     // Windows 10 with multiple high resolution displays connected.
     // BBS
     wxBoxSizer *side_tools = create_side_tools();
-    m_tabpanel = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, side_tools,
+    m_tabpanel = new Notebook(m_content_panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, side_tools,
                               wxNB_TOP | wxTAB_TRAVERSAL | wxNB_NOPAGETHEME);
     m_tabpanel->SetBackgroundColour(*wxWHITE);
     m_tabpanel->ShowTabButtons(false);
@@ -1160,8 +1178,15 @@ void MainFrame::init_tabpanel() {
         }
         UpdateCEFNavbarState();
 
-        if (panel)
-            panel->SetFocus();
+        if (sel == tpHome) {
+            m_content_panel->Hide();
+            Layout();
+        } else {
+            m_content_panel->Show();
+            Layout();
+            if (panel)
+                panel->SetFocus();
+        }
 
         /*switch (sel) {
         case TabPosition::tpHome:

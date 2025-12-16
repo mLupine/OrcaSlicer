@@ -1,4 +1,4 @@
-#include "CEFNavigationBar.hpp"
+#include "CEFShell.hpp"
 #include "CEFUtils.hpp"
 #include <cef_browser.h>
 #include <cef_app.h>
@@ -19,20 +19,18 @@
 
 namespace Slic3r { namespace GUI {
 
-wxBEGIN_EVENT_TABLE(CEFNavigationBar, wxPanel)
-    EVT_SIZE(CEFNavigationBar::OnSize)
-    EVT_SET_FOCUS(CEFNavigationBar::OnSetFocus)
-    EVT_SHOW(CEFNavigationBar::OnShow)
+wxBEGIN_EVENT_TABLE(CEFShell, wxPanel)
+    EVT_SIZE(CEFShell::OnSize)
+    EVT_SET_FOCUS(CEFShell::OnSetFocus)
+    EVT_SHOW(CEFShell::OnShow)
 wxEND_EVENT_TABLE()
 
-CEFNavigationBar::CEFNavigationBar(wxWindow* parent,
-                                   wxWindowID id,
-                                   const wxPoint& pos,
-                                   const wxSize& size)
+CEFShell::CEFShell(wxWindow* parent,
+                   wxWindowID id,
+                   const wxPoint& pos,
+                   const wxSize& size)
     : wxPanel(parent, id, pos, size)
     , browser_created_(false) {
-
-    SetMinSize(wxSize(-1, 46));
 
     handler_ = new CEFBrowserHandler();
 
@@ -40,13 +38,13 @@ CEFNavigationBar::CEFNavigationBar(wxWindow* parent,
     });
 }
 
-CEFNavigationBar::~CEFNavigationBar() {
+CEFShell::~CEFShell() {
     if (handler_ && handler_->GetBrowser()) {
         handler_->GetBrowser()->GetHost()->CloseBrowser(true);
     }
 }
 
-void CEFNavigationBar::CreateBrowser(const std::string& url) {
+void CEFShell::CreateBrowser(const std::string& url) {
     if (browser_created_) {
         return;
     }
@@ -54,7 +52,7 @@ void CEFNavigationBar::CreateBrowser(const std::string& url) {
     CefWindowInfo window_info;
     CefBrowserSettings browser_settings;
 
-    browser_settings.background_color = CefColorSetARGB(255, 255, 255, 255);
+    browser_settings.background_color = CefColorSetARGB(0, 0, 0, 0);
 
     wxSize client_size = GetClientSize();
 
@@ -68,7 +66,7 @@ void CEFNavigationBar::CreateBrowser(const std::string& url) {
 #elif defined(__WXOSX__)
     CefRect rect(0, 0, client_size.GetWidth(), client_size.GetHeight());
     void* handle = GetHandle();
-    CEFViewHelper::ConfigureParentView(handle);
+    CEFViewHelper::ConfigureParentView(handle, true);
     window_info.SetAsChild((CefWindowHandle)handle, rect);
 #else
     GtkWidget* widget = (GtkWidget*)GetHandle();
@@ -85,7 +83,7 @@ void CEFNavigationBar::CreateBrowser(const std::string& url) {
     browser_created_ = true;
 }
 
-void CEFNavigationBar::LoadURL(const std::string& url) {
+void CEFShell::LoadURL(const std::string& url) {
     pending_url_ = url;
     if (handler_ && handler_->GetBrowser()) {
         handler_->GetBrowser()->GetMainFrame()->LoadURL(GetPlatformSpecificURL(url));
@@ -98,11 +96,11 @@ void CEFNavigationBar::LoadURL(const std::string& url) {
     }
 }
 
-void CEFNavigationBar::OnShow(wxShowEvent& event) {
+void CEFShell::OnShow(wxShowEvent& event) {
     event.Skip();
 }
 
-void CEFNavigationBar::UpdateState(const std::string& json_state) {
+void CEFShell::UpdateState(const std::string& json_state) {
     if (handler_ && handler_->GetBrowser()) {
         std::string script = "if (window.updateAppState) { window.updateAppState(" +
                            json_state + "); }";
@@ -114,7 +112,7 @@ void CEFNavigationBar::UpdateState(const std::string& json_state) {
     }
 }
 
-void CEFNavigationBar::ExecuteJavaScript(const std::string& code) {
+void CEFShell::ExecuteJavaScript(const std::string& code) {
     if (handler_ && handler_->GetBrowser()) {
         handler_->GetBrowser()->GetMainFrame()->ExecuteJavaScript(
             code,
@@ -124,14 +122,14 @@ void CEFNavigationBar::ExecuteJavaScript(const std::string& code) {
     }
 }
 
-CefRefPtr<CefBrowser> CEFNavigationBar::GetBrowser() const {
+CefRefPtr<CefBrowser> CEFShell::GetBrowser() const {
     if (handler_) {
         return handler_->GetBrowser();
     }
     return nullptr;
 }
 
-void CEFNavigationBar::OnSize(wxSizeEvent& event) {
+void CEFShell::OnSize(wxSizeEvent& event) {
     event.Skip();
 
     if (handler_ && handler_->GetBrowser()) {
@@ -150,9 +148,11 @@ void CEFNavigationBar::OnSize(wxSizeEvent& event) {
         handler_->GetBrowser()->GetHost()->WasResized();
 #endif
     }
+
+    RepositionNativePanels();
 }
 
-void CEFNavigationBar::OnSetFocus(wxFocusEvent& event) {
+void CEFShell::OnSetFocus(wxFocusEvent& event) {
     event.Skip();
 
     if (handler_ && handler_->GetBrowser()) {
@@ -160,13 +160,51 @@ void CEFNavigationBar::OnSetFocus(wxFocusEvent& event) {
     }
 }
 
-std::string CEFNavigationBar::GetPlatformSpecificURL(const std::string& url) {
+std::string CEFShell::GetPlatformSpecificURL(const std::string& url) {
     if (url.find("://") != std::string::npos) {
         return url;
     }
 
     std::string resources_path = CEFUtils::GetResourcesPath();
     return "file://" + resources_path + "/" + url;
+}
+
+void CEFShell::RegisterHole(const std::string& id, wxWindow* panel) {
+    HoleRegion region;
+    region.id = id;
+    region.native_panel = panel;
+    region.bounds = wxRect(0, 0, 0, 0);
+
+    hole_regions_[id] = region;
+}
+
+void CEFShell::UnregisterHole(const std::string& id) {
+    hole_regions_.erase(id);
+}
+
+void CEFShell::UpdateHoleBounds(const std::string& id, const wxRect& bounds) {
+    auto it = hole_regions_.find(id);
+    if (it != hole_regions_.end()) {
+        it->second.bounds = bounds;
+        RepositionNativePanels();
+    }
+}
+
+wxRect CEFShell::GetHoleBounds(const std::string& id) const {
+    auto it = hole_regions_.find(id);
+    if (it != hole_regions_.end()) {
+        return it->second.bounds;
+    }
+    return wxRect(0, 0, 0, 0);
+}
+
+void CEFShell::RepositionNativePanels() {
+    for (auto& [id, region] : hole_regions_) {
+        if (region.native_panel && region.bounds.GetWidth() > 0 && region.bounds.GetHeight() > 0) {
+            region.native_panel->SetPosition(wxPoint(region.bounds.GetX(), region.bounds.GetY()));
+            region.native_panel->SetSize(wxSize(region.bounds.GetWidth(), region.bounds.GetHeight()));
+        }
+    }
 }
 
 }} // namespace Slic3r::GUI

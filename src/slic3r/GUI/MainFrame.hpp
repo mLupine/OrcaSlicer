@@ -32,7 +32,7 @@
 #include "PrinterWebView.hpp"
 #include "calib_dlg.hpp"
 #include "MultiMachinePage.hpp"
-#include "CEF/CEFNavigationBar.hpp"
+#include "CEF/CEFShell.hpp"
 
 #define ENABEL_PRINT_ALL 0
 
@@ -234,7 +234,7 @@ public:
 
     Plater*     plater() { return m_plater; }
 
-    CEFNavigationBar* cef_navbar() { return m_cef_navbar; }
+    CEFShell* cef_shell() { return m_cef_shell; }
 
     void        update_filament_tab_ui();
 
@@ -316,7 +316,8 @@ public:
     Input_Shaping_Damp_Test_Dlg* m_IS_damp_calib_dlg{ nullptr };
     Cornering_Test_Dlg* m_cornering_calib_dlg{ nullptr };
 
-    CEFNavigationBar*     m_cef_navbar{ nullptr };
+    CEFShell*             m_cef_shell{ nullptr };
+    wxPanel*              m_content_panel{ nullptr };
 
     PrintHostQueueDialog* printhost_queue_dlg() { return m_printhost_queue_dlg; }
     Plater*               m_plater { nullptr };

@@ -31,6 +31,17 @@ export interface CEFQueryRequest {
   onFailure: (errorCode: number, errorMessage: string) => void
 }
 
+export interface RecentFile {
+  path: string
+  projectName: string
+  time: string
+  image?: string
+}
+
+export interface HomeState {
+  recentFiles: RecentFile[]
+}
+
 declare global {
   interface Window {
     cefQuery?: (request: CEFQueryRequest) => number

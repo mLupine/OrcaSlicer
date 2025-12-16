@@ -4,17 +4,24 @@
 #include <cef_browser.h>
 #include "CEFBrowserHandler.hpp"
 #include <string>
+#include <map>
 
 namespace Slic3r { namespace GUI {
 
-class CEFNavigationBar : public wxPanel {
-public:
-    CEFNavigationBar(wxWindow* parent,
-                     wxWindowID id = wxID_ANY,
-                     const wxPoint& pos = wxDefaultPosition,
-                     const wxSize& size = wxDefaultSize);
+struct HoleRegion {
+    std::string id;
+    wxRect bounds;
+    wxWindow* native_panel{nullptr};
+};
 
-    virtual ~CEFNavigationBar();
+class CEFShell : public wxPanel {
+public:
+    CEFShell(wxWindow* parent,
+             wxWindowID id = wxID_ANY,
+             const wxPoint& pos = wxDefaultPosition,
+             const wxSize& size = wxDefaultSize);
+
+    virtual ~CEFShell();
 
     void LoadURL(const std::string& url);
     void UpdateState(const std::string& json_state);
@@ -22,6 +29,13 @@ public:
 
     CefRefPtr<CefBrowser> GetBrowser() const;
     CefRefPtr<CEFBrowserHandler> GetHandler() const { return handler_; }
+
+    void RegisterHole(const std::string& id, wxWindow* panel);
+    void UnregisterHole(const std::string& id);
+    void UpdateHoleBounds(const std::string& id, const wxRect& bounds);
+    void RepositionNativePanels();
+
+    wxRect GetHoleBounds(const std::string& id) const;
 
 private:
     void CreateBrowser(const std::string& url);
@@ -34,6 +48,8 @@ private:
     CefRefPtr<CEFBrowserHandler> handler_;
     bool browser_created_;
     std::string pending_url_;
+
+    std::map<std::string, HoleRegion> hole_regions_;
 
     wxDECLARE_EVENT_TABLE();
 };

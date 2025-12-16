@@ -3,8 +3,14 @@
 #include "CEF/CEFMessageHandler.hpp"
 #include "Plater.hpp"
 #include "Notebook.hpp"
+#include "GUI_App.hpp"
+#include "slic3r/Utils/NetworkAgent.hpp"
 #include <nlohmann/json.hpp>
 #include <wx/event.h>
+#include <boost/filesystem.hpp>
+#include <wx/filename.h>
+#include <wx/utils.h>
+#include <wx/datetime.h>
 
 #include <optional>
 
@@ -154,7 +160,7 @@ void MainFrame::OnCEFTabSelected(wxCommandEvent& evt) {
 }
 
 void MainFrame::UpdateCEFNavbarState() {
-    if (!m_cef_navbar) return;
+    if (!m_cef_shell) return;
 
     const bool has_unsaved_changes = (m_plater != nullptr) && m_plater->is_project_dirty();
     const bool can_undo = (m_plater != nullptr) ? m_plater->can_undo() : false;
@@ -163,13 +169,13 @@ void MainFrame::UpdateCEFNavbarState() {
 
     json state = build_navbar_state(m_tabpanel, m_webview, m_plater, m_monitor, m_printer_view, m_multi_machine, m_project, m_calibration,
                                    GetTitle(), has_unsaved_changes, can_undo, can_redo, can_save_state);
-    m_cef_navbar->UpdateState(state.dump());
+    m_cef_shell->UpdateState(state.dump());
 }
 
 void MainFrame::RegisterCEFCommands() {
-    if (!m_cef_navbar) return;
+    if (!m_cef_shell) return;
 
-    auto browser_handler = m_cef_navbar->GetHandler();
+    auto browser_handler = m_cef_shell->GetHandler();
     if (!browser_handler) return;
 
     auto message_router = browser_handler->GetMessageRouter();
@@ -269,6 +275,218 @@ void MainFrame::RegisterCEFCommands() {
     handler->RegisterCommand("windowClose", [this](const std::string& payload) {
         Close();
         json response;
+        response["success"] = true;
+        return response.dump();
+    });
+
+    handler->RegisterCommand("updateHoleBounds", [this](const std::string& payload) {
+        json response;
+        try {
+            auto j = nlohmann::json::parse(payload);
+            if (j.contains("id") && j.contains("bounds")) {
+                std::string id = j["id"];
+                auto bounds = j["bounds"];
+                int x = bounds.value("x", 0);
+                int y = bounds.value("y", 0);
+                int width = bounds.value("width", 0);
+                int height = bounds.value("height", 0);
+
+                if (m_cef_shell) {
+                    m_cef_shell->UpdateHoleBounds(id, wxRect(x, y, width, height));
+                }
+
+                response["success"] = true;
+            } else {
+                response["success"] = false;
+                response["error"] = "Missing 'id' or 'bounds' in payload";
+            }
+        } catch (const std::exception& e) {
+            response["success"] = false;
+            response["error"] = e.what();
+        }
+        return response.dump();
+    });
+
+    handler->RegisterCommand("getRecentFiles", [this](const std::string& payload) {
+        json response;
+        response["success"] = true;
+
+        json files = json::array();
+        for (size_t i = 0; i < m_recent_projects.GetCount(); ++i) {
+            json file;
+            wxString path = m_recent_projects.GetHistoryFile(i);
+            file["path"] = path.ToStdString();
+
+            wxString name = path.AfterLast(wxFileName::GetPathSeparator());
+            if (name.IsEmpty()) name = path.AfterLast('/');
+            file["projectName"] = name.ToStdString();
+
+            boost::system::error_code ec;
+            std::time_t t = boost::filesystem::last_write_time(path.ToStdString(), ec);
+            if (!ec) {
+                wxDateTime dt(t);
+                file["time"] = dt.FormatISOCombined(' ').ToStdString();
+            } else {
+                file["time"] = "";
+            }
+
+            std::wstring thumbnail = m_recent_projects.GetThumbnailUrl(i);
+            if (!thumbnail.empty()) {
+                file["image"] = wxString(thumbnail).ToStdString();
+            }
+
+            files.push_back(file);
+        }
+        response["files"] = files;
+        return response.dump();
+    });
+
+    handler->RegisterCommand("openRecentFile", [this](const std::string& payload) {
+        json response;
+        try {
+            auto j = nlohmann::json::parse(payload);
+            if (j.contains("path")) {
+                std::string path = j["path"];
+                CallAfter([this, path]() {
+                    wxString wxPath = wxString::FromUTF8(path);
+                    m_plater->load_project(wxPath);
+                });
+                response["success"] = true;
+            } else {
+                response["success"] = false;
+                response["error"] = "Missing 'path' in payload";
+            }
+        } catch (const std::exception& e) {
+            response["success"] = false;
+            response["error"] = e.what();
+        }
+        return response.dump();
+    });
+
+    handler->RegisterCommand("deleteRecentFile", [this](const std::string& payload) {
+        json response;
+        try {
+            auto j = nlohmann::json::parse(payload);
+            if (j.contains("path")) {
+                std::string path = j["path"];
+                CallAfter([this, path]() {
+                    wxString wxPath = wxString::FromUTF8(path);
+                    size_t idx = m_recent_projects.FindFileInHistory(wxPath);
+                    if (idx != (size_t)-1) {
+                        m_recent_projects.RemoveFileFromHistory(idx);
+                    }
+                });
+                response["success"] = true;
+            } else {
+                response["success"] = false;
+                response["error"] = "Missing 'path' in payload";
+            }
+        } catch (const std::exception& e) {
+            response["success"] = false;
+            response["error"] = e.what();
+        }
+        return response.dump();
+    });
+
+    handler->RegisterCommand("clearAllRecentFiles", [this](const std::string& payload) {
+        json response;
+        CallAfter([this]() {
+            while (m_recent_projects.GetCount() > 0) {
+                m_recent_projects.RemoveFileFromHistory(0);
+            }
+        });
+        response["success"] = true;
+        return response.dump();
+    });
+
+    handler->RegisterCommand("exploreRecentFile", [this](const std::string& payload) {
+        json response;
+        try {
+            auto j = nlohmann::json::parse(payload);
+            if (j.contains("path")) {
+                std::string path = j["path"];
+                CallAfter([path]() {
+                    wxString wxPath = wxString::FromUTF8(path);
+                    boost::filesystem::path p(path);
+                    if (boost::filesystem::exists(p)) {
+                        wxString dir = wxString::FromUTF8(p.parent_path().string());
+#ifdef _WIN32
+                        wxExecute(wxString::Format("explorer /select,\"%s\"", wxPath), wxEXEC_ASYNC);
+#elif __APPLE__
+                        wxExecute(wxString::Format("open -R \"%s\"", wxPath), wxEXEC_ASYNC);
+#else
+                        wxExecute(wxString::Format("xdg-open \"%s\"", dir), wxEXEC_ASYNC);
+#endif
+                    }
+                });
+                response["success"] = true;
+            } else {
+                response["success"] = false;
+                response["error"] = "Missing 'path' in payload";
+            }
+        } catch (const std::exception& e) {
+            response["success"] = false;
+            response["error"] = e.what();
+        }
+        return response.dump();
+    });
+
+    handler->RegisterCommand("newProject", [this](const std::string& payload) {
+        json response;
+        CallAfter([this]() {
+            if (m_plater) {
+                m_plater->new_project();
+                select_tab(MainFrame::tp3DEditor);
+            }
+        });
+        response["success"] = true;
+        return response.dump();
+    });
+
+    handler->RegisterCommand("openProject", [this](const std::string& payload) {
+        json response;
+        CallAfter([this]() {
+            if (m_plater) {
+                m_plater->load_project();
+            }
+        });
+        response["success"] = true;
+        return response.dump();
+    });
+
+    handler->RegisterCommand("getUserInfo", [this](const std::string& payload) {
+        json response;
+        response["success"] = true;
+
+        NetworkAgent* agent = wxGetApp().getAgent();
+        if (agent && agent->is_user_login()) {
+            response["isLoggedIn"] = true;
+            response["userName"] = agent->get_user_name();
+            response["userAvatar"] = agent->get_user_avatar();
+            response["userId"] = agent->get_user_id();
+        } else {
+            response["isLoggedIn"] = false;
+            response["userName"] = "";
+            response["userAvatar"] = "";
+            response["userId"] = "";
+        }
+        return response.dump();
+    });
+
+    handler->RegisterCommand("userLogin", [this](const std::string& payload) {
+        json response;
+        CallAfter([]() {
+            wxGetApp().request_user_login(1);
+        });
+        response["success"] = true;
+        return response.dump();
+    });
+
+    handler->RegisterCommand("userLogout", [this](const std::string& payload) {
+        json response;
+        CallAfter([]() {
+            wxGetApp().request_user_logout();
+        });
         response["success"] = true;
         return response.dump();
     });
